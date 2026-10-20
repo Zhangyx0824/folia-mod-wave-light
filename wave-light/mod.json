@@ -1,0 +1,12 @@
+{
+  "folium": 1,
+  "id": "wave-light",
+  "name": "动感波光",
+  "version": "1.0.0",
+  "author": "pomepii",
+  "description": "一个歌词动画模式：选中后播放页面变成一片随音乐呼吸的「波光」——背景与光波的颜色都取自当前歌曲封面的主色，数条光带在暗色水面上缓缓流动、明灭，歌词居中排布，当前句染上封面同源的亮色。参考 QQ 音乐的动感波光播放页；不选中则完全不出现，不影响其他模式。",
+  "client": "client.mjs",
+  "preview": "preview.jpg",
+  "permissions": [],
+  "folia": ">=0.7.21 <0.8.0"
+}

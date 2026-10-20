@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="44%" r="95%">
+      <stop offset="0%" stop-color="#12335e"/>
+      <stop offset="58%" stop-color="#081527"/>
+      <stop offset="100%" stop-color="#040b16"/>
+    </radialGradient>
+    <linearGradient id="fadeL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4da3ff" stop-opacity="0"/>
+      <stop offset="22%" stop-color="#4da3ff" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#6fbcff" stop-opacity="0.85"/>
+      <stop offset="78%" stop-color="#4da3ff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#4da3ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="fadeL2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7fd4ff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#9fe0ff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#7fd4ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-5%" y="-60%" width="110%" height="220%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="soft" x="-40%" y="-120%" width="180%" height="340%">
+      <feGaussianBlur stdDeviation="42"/>
+    </filter>
+    <linearGradient id="titleFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eaf6ff"/>
+      <stop offset="100%" stop-color="#bfe2ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background wash -->
+  <rect width="1280" height="720" fill="url(#bg)"/>
+
+  <!-- drifting glow patches -->
+  <ellipse cx="420" cy="330" rx="330" ry="180" fill="#2f7fd6" opacity="0.20" filter="url(#soft)"/>
+  <ellipse cx="920" cy="430" rx="360" ry="200" fill="#1f5fa8" opacity="0.24" filter="url(#soft)"/>
+  <ellipse cx="700" cy="260" rx="260" ry="140" fill="#57a8ef" opacity="0.14" filter="url(#soft)"/>
+
+  <!-- wave bands (back, dimmer) -->
+  <g fill="none" stroke="url(#fadeL)" filter="url(#glow)">
+    <path stroke-opacity="0.5" stroke-width="2" d="M0 470 C 180 440, 340 500, 520 472 S 880 430, 1060 466 S 1220 486, 1280 470"/>
+    <path stroke-opacity="0.62" stroke-width="2.4" d="M0 445 C 200 470, 380 415, 560 442 S 900 480, 1080 448 S 1230 428, 1280 444"/>
+    <path stroke-opacity="0.75" stroke-width="2.8" d="M0 412 C 170 388, 360 440, 540 415 S 860 375, 1040 408 S 1220 428, 1280 410"/>
+    <path stroke-opacity="0.9" stroke-width="3.4" d="M0 380 C 210 405, 390 350, 580 378 S 920 415, 1100 384 S 1240 366, 1280 380"/>
+    <path stroke-opacity="0.68" stroke-width="2.6" d="M0 350 C 190 328, 370 375, 550 352 S 880 318, 1060 346 S 1230 362, 1280 350"/>
+    <path stroke-opacity="0.45" stroke-width="2" d="M0 322 C 200 340, 400 300, 600 320 S 940 348, 1120 326 S 1250 316, 1280 324"/>
+    <path stroke-opacity="0.62" stroke-width="2.6" d="M0 296 C 180 278, 380 316, 570 298 S 900 270, 1080 292 S 1240 302, 1280 296"/>
+    <path stroke-opacity="0.4" stroke-width="1.8" d="M0 268 C 210 285, 410 250, 610 268 S 950 292, 1130 272 S 1255 264, 1280 270"/>
+  </g>
+  <!-- one bright crest -->
+  <path fill="none" stroke="url(#fadeL2)" stroke-width="4" stroke-opacity="1" filter="url(#glow)"
+        d="M0 396 C 200 420, 400 362, 600 388 S 940 424, 1120 392 S 1245 376, 1280 388"/>
+
+  <!-- lyrics -->
+  <g font-family="PingFang SC, Hiragino Sans GB, sans-serif" text-anchor="middle">
+    <text x="640" y="205" font-size="26" fill="#cfe6ff" fill-opacity="0.78" font-weight="600">夜航星</text>
+    <text x="640" y="240" font-size="21" fill="#cfe6ff" fill-opacity="0.5">Annotated Astronomer</text>
+
+    <text x="640" y="580" font-size="52" fill="url(#titleFade)" font-weight="700" letter-spacing="2">穿过昼夜与山海</text>
+    <text x="640" y="628" font-size="26" fill="#cfe6ff" fill-opacity="0.5">越过人海 只为与你相认</text>
+    <text x="640" y="668" font-size="23" fill="#cfe6ff" fill-opacity="0.18">风把故事吹向下一站</text>
+  </g>
+</svg>

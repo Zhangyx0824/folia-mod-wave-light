@@ -60,9 +60,9 @@
   <path fill="none" stroke="url(#ringBand2)" stroke-width="5" stroke-opacity="0.9" filter="url(#glow)"
         d="M 1272 590 A 278 278 0 0 1 1042 180"/>
 
-  <!-- giant keyword watermark behind the lyric -->
-  <text x="596" y="420" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="320"
-        font-weight="800" fill="#463608" fill-opacity="0.92" text-anchor="middle">再</text>
+  <!-- giant keyword watermark behind the lyric (random 3-char run) -->
+  <text x="640" y="425" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="230"
+        font-weight="800" fill="#463608" fill-opacity="0.92" text-anchor="middle" letter-spacing="6">重相逢</text>
 
   <!-- centred lyric line -->
   <text x="640" y="348" font-family="PingFang SC, Hiragino Sans GB, serif" font-size="58"

@@ -45,7 +45,7 @@ export default function activate(folium) {
         {
             key: 'keyword', type: 'boolean', defaultValue: true,
             label: label('关键字水印', 'Keyword watermark'),
-            description: label('歌词背后的大字号关键字', 'A huge keyword from the current line behind the lyrics'),
+            description: label('歌词背后的超大水印，随机取当前句中 2–4 个连贯字（外语取一个单词）', 'A huge watermark behind the lyrics: a random run of 2–4 contiguous characters from the current line (a word for latin)'),
         },
         {
             key: 'textScale', type: 'number', defaultValue: 1, min: 0.6, max: 1.8, step: 0.05,
@@ -76,10 +76,13 @@ function mountWaveLight(folium, container, ctx) {
 
     const style = document.createElement('style');
     style.textContent = [
+        // Line and keyword are absolutely centred (left/top 50% +
+        // translate(-50%,-50%)), so the entrance animations must carry the
+        // same transform.
         '.wave-line-in { animation: wave-line-in 0.38s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '@keyframes wave-line-in {',
-        '  from { opacity: 0; transform: scale(0.985); filter: blur(3px); }',
-        '  to { opacity: 1; transform: none; filter: blur(0); }',
+        '  from { opacity: 0; transform: translate(-50%, -50%) scale(0.985); filter: blur(3px); }',
+        '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }',
         '}',
         '.wave-keyword-in { animation: wave-keyword-in 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '@keyframes wave-keyword-in {',
@@ -102,27 +105,27 @@ function mountWaveLight(folium, container, ctx) {
     const g = cv.getContext('2d');
 
     // ---- keyword watermark -------------------------------------------------
-    // One keyword (a CJK char, or the first word of a latin line) from the
-    // active line, huge and dark, floating behind the lyric text.
+    // A few contiguous characters picked out of the active line (2–4 for CJK,
+    // a word for latin), huge and dark, floating behind the lyric text —
+    // exactly co-centred with it.
     const keywordEl = document.createElement('div');
     keywordEl.style.cssText = [
-        'position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);',
+        'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
         'font-weight:800;line-height:1;pointer-events:none;user-select:none;',
         'opacity:0.92;letter-spacing:0.02em;white-space:nowrap;',
     ].join('');
     container.appendChild(keywordEl);
 
     // ---- current line ------------------------------------------------------
-    const centerWrap = document.createElement('div');
-    centerWrap.style.cssText = [
-        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;',
-        'box-sizing:border-box;padding:0 7%;pointer-events:none;',
-    ].join('');
-    container.appendChild(centerWrap);
-
+    // Absolutely centred on the same anchor as the watermark, so lyric and
+    // keyword share one focal point.
     const lineEl = document.createElement('div');
-    lineEl.style.cssText = 'line-height:1.3;font-weight:700;text-wrap:balance;text-align:center;';
-    centerWrap.appendChild(lineEl);
+    lineEl.style.cssText = [
+        'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
+        'max-width:86%;text-align:center;text-wrap:balance;',
+        'line-height:1.3;font-weight:700;pointer-events:none;',
+    ].join('');
+    container.appendChild(lineEl);
 
     // ---- translation -------------------------------------------------------
     // Foreign songs: pinned to the bottom-left, never centred.
@@ -237,15 +240,17 @@ function mountWaveLight(folium, container, ctx) {
         g.fillStyle = rg;
         g.fillRect(cx - coreR, cy - coreR, coreR * 2, coreR * 2);
 
-        // concentric rings
+        // concentric rings with an outward-travelling swell — successive rings
+        // enlarge and shrink in turn, like the cone of a speaker pushing the
+        // wave outwards
         const n = 9;
         for (let i = 1; i <= n; i++) {
             const r1 = rand(i + seed * 13, 1);
             const r2 = rand(i + seed * 13, 2);
-            const rr = baseR * (0.16 + 0.92 * (i / n))
-                * (1 + 0.028 * Math.sin(t * (0.22 + 0.1 * r1) + seed * 2.1 + i * 0.8));
-            const breathe = 0.65 + 0.35 * Math.sin(t * (0.14 + 0.08 * r2) + i * 1.3 + seed);
-            const alpha = Math.max(0.008, alphaScale * (0.035 + 0.1 * (1 - i / n)) * breathe);
+            const swell = 1 + 0.15 * Math.sin(t * (0.65 + 0.15 * r1) - i * 0.62 + seed * 2.1);
+            const rr = baseR * (0.16 + 0.92 * (i / n)) * swell;
+            const breathe = 0.6 + 0.4 * Math.sin(t * (0.45 + 0.1 * r2) - i * 0.55 + seed);
+            const alpha = Math.max(0.008, alphaScale * (0.03 + 0.095 * (1 - i / n)) * breathe);
 
             // vertical banding: fade the ring out toward its top and bottom
             const grad = g.createLinearGradient(0, cy - rr, 0, cy + rr);
@@ -261,6 +266,30 @@ function mountWaveLight(folium, container, ctx) {
             g.beginPath();
             g.arc(cx, cy, rr, 0, Math.PI * 2);
             g.stroke();
+        }
+
+        // sound-wave emission: bright rings born at the core, expanding
+        // outward and fading as they go — the "speaker pulse"
+        for (let k = 0; k < 3; k++) {
+            const phase = (t * (0.1 + 0.018 * rand(seed, 7)) + k / 3 + seed * 0.21) % 1;
+            const rr = baseR * (0.1 + 1.04 * phase);
+            const fade = Math.pow(1 - phase, 1.6);
+            const alpha = Math.max(0, alphaScale * 0.17 * fade);
+            if (alpha > 0.004) {
+                const grad = g.createLinearGradient(0, cy - rr, 0, cy + rr);
+                grad.addColorStop(0, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+                grad.addColorStop(0.3, `rgba(${wave.r},${wave.g},${wave.b},${(alpha * 0.6).toFixed(3)})`);
+                grad.addColorStop(0.5, `rgba(${wave.r},${wave.g},${wave.b},${alpha.toFixed(3)})`);
+                grad.addColorStop(0.7, `rgba(${wave.r},${wave.g},${wave.b},${(alpha * 0.6).toFixed(3)})`);
+                grad.addColorStop(1, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+                g.strokeStyle = grad;
+                g.lineWidth = Math.max(0.8, h * (0.0018 + 0.0035 * (1 - phase)));
+                g.shadowColor = cssRgba(wave, Math.min(0.6, alpha * 1.5));
+                g.shadowBlur = h * 0.022;
+                g.beginPath();
+                g.arc(cx, cy, rr, 0, Math.PI * 2);
+                g.stroke();
+            }
         }
 
         // slowly rotating bright arcs — the "动" in 动感波光
@@ -358,30 +387,61 @@ function mountWaveLight(folium, container, ctx) {
         container.style.fontFamily = stack;
         lineEl.style.fontSize = `${base}px`;
         lineEl.style.fontWeight = String(weight);
-        keywordEl.style.fontSize = `${Math.round(Math.min(Math.max(height * 0.42, 40), 620) * (0.55 + 0.45 * s.textScale))}px`;
+        // Watermark size depends on the length of the picked run and is set in
+        // renderText; only the scale factor matters here.
         translationEl.style.fontSize = `${Math.round(base * 0.4)}px`;
     };
 
     // ---- text --------------------------------------------------------------
+    // FNV-1a string hash → stable per line, so the same line always picks the
+    // same keyword while different lines pick different ones.
+    const strHash = (s) => {
+        let h = 2166136261;
+        for (const c of s) {
+            h ^= c.codePointAt(0);
+            h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+    };
+    const rand01 = (n) => frac(Math.sin(n * 12.9898) * 43758.5453);
+
+    /**
+     * A random *contiguous* run of 2–4 characters from the line (CJK/kana), or
+     * a random word (latin). Never just the first characters: the position and
+     * length are seeded by the line text, so they vary from line to line but
+     * stay put while a line is active.
+     */
     const keywordOf = (text) => {
         const t = text.trim();
         if (!t) return '';
-        // CJK line: its first han character reads best as a watermark.
-        const han = t.match(/[\u3400-\u9fff\uf900-\ufaff]/);
-        if (han) return han[0];
-        // kana line: first kana run.
-        const kana = t.match(/[\u3040-\u30ff]+/);
-        if (kana) return kana[0].slice(0, 2);
-        // latin line: the first word, capped so it still fits.
-        const word = t.split(/[\s,，.。!！?？;；:：'"、·—-]+/).filter(Boolean)[0];
-        return word ? word.slice(0, 10) : '';
+        // Strip spaces/punctuation/symbols so a run is always clean "字".
+        const pool = t.replace(/[\s\p{P}\p{S}]+/gu, '');
+        if (!pool) return '';
+
+        const han = pool.match(/[\u3400-\u9fff\uf900-\ufaff]/);
+        const kana = pool.match(/[\u3040-\u30ff]/);
+        if (!han && !kana) {
+            // latin line: a random word, capped so it still fits.
+            const words = t.split(/[\s,，.。!！?？;；:：'"、·—-]+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+            if (!words.length) return '';
+            const h = strHash(t);
+            return words[Math.floor(rand01(h) * words.length) % words.length].slice(0, 12);
+        }
+
+        const h = strHash(t);
+        const maxLen = Math.min(4, pool.length);
+        if (maxLen < 2) return pool;
+        const len = 2 + Math.floor(rand01(h + 1) * (maxLen - 1)); // 2..maxLen
+        const startMax = pool.length - len;
+        const start = Math.floor(rand01(h + 2) * (startMax + 1)) % (startMax + 1);
+        return pool.slice(start, start + len);
     };
 
     const renderText = (animate) => {
         const display = ctx.getDisplay();
         const s = settings();
         const showText = display.showText !== false;
-        centerWrap.style.display = showText ? '' : 'none';
+        lineEl.style.display = showText ? '' : 'none';
         keywordEl.style.display = showText && s.keyword ? '' : 'none';
         translationEl.style.display = showText ? '' : 'none';
         if (!showText) {
@@ -413,6 +473,15 @@ function mountWaveLight(folium, container, ctx) {
         lineEl.textContent = text;
         keywordEl.textContent = keyword;
         keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
+        // Fit the watermark: shrink it when the picked run is long, so 2–4
+        // characters never run off the page.
+        if (keyword) {
+            const kSize = Math.min(
+                height * 0.42,
+                (width * 0.8) / keyword.length,
+            );
+            keywordEl.style.fontSize = `${Math.max(28, kSize * (0.55 + 0.45 * s.textScale))}px`;
+        }
         translationEl.textContent = translation;
         translationEl.style.display = translation ? '' : 'none';
 

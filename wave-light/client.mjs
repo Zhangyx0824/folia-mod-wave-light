@@ -81,8 +81,8 @@ function mountWaveLight(folium, container, ctx) {
         // transform.
         '.wave-keyword-in { animation: wave-keyword-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '@keyframes wave-keyword-in {',
-        '  from { opacity: 0; transform: translate(-50%, -50%) scale(1.06); }',
-        '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
+        '  from { opacity: 0; transform: translate(-50%, -50%) scale(1.06); filter: blur(18px); }',
+        '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(var(--kw-blur, 0px)); }',
         '}',
         '.wave-fade-in { animation: wave-fade-in 0.5s ease-out both; }',
         '@keyframes wave-fade-in {',
@@ -217,7 +217,8 @@ function mountWaveLight(folium, container, ctx) {
             base: rgb,
             wave: { r: wave[0], g: wave[1], b: wave[2] },
             tint: { r: tint[0], g: tint[1], b: tint[2] },
-            keyword: scaleRgb(rgb, 0.35),
+            // watermark: black overlaid with the cover colour (~40% cover)
+            keyword: scaleRgb(rgb, 0.4),
             bgMid: scaleRgb(rgb, 0.24),
             bgEdge: scaleRgb(rgb, 0.07),
             bgDeep: scaleRgb(rgb, 0.04),
@@ -230,8 +231,8 @@ function mountWaveLight(folium, container, ctx) {
         const { wave, tint } = palette;
         bg.style.background = 'radial-gradient(135% 100% at 50% 44%, '
             + `${cssRgb(palette.bgMid)} 0%, ${cssRgb(palette.bgEdge)} 58%, ${cssRgb(palette.bgDeep)} 100%)`;
-        keywordEl.style.color = cssRgba(palette.keyword, 0.92);
-        keywordEl.style.textShadow = `0 0 ${Math.max(8, height * 0.02)}px ${cssRgba(palette.keyword, 0.35)}`;
+        keywordEl.style.color = cssRgba(palette.keyword, 0.88);
+        keywordEl.style.textShadow = `0 0 ${Math.max(8, height * 0.02)}px ${cssRgba(palette.keyword, 0.3)}`;
         lineEl.style.color = cssRgba(tint, 0.97);
         lineEl.style.textShadow = `0 1px ${Math.max(10, height * 0.03)}px ${cssRgba(palette.keyword, 0.5)}`;
         translationEl.style.color = cssRgba(tint, 0.68);
@@ -658,7 +659,15 @@ function mountWaveLight(folium, container, ctx) {
         // dominate, small enough to leave the translation room below.
         kFontPx = Math.max(28, Math.min(height * 0.42, (width * 0.8) / kLen)
             * (0.55 + 0.45 * s.textScale)) * 0.8;
-        if (keyword) keywordEl.style.fontSize = `${kFontPx}px`;
+        if (keyword) {
+            keywordEl.style.fontSize = `${kFontPx}px`;
+            // Constant soft focus: the watermark is never razor sharp. The
+            // entrance animation ends at the same blur (via --kw-blur) because
+            // a finished fill:both animation would otherwise pin blur(0).
+            const kwBlur = Math.max(3, Math.round(kFontPx * 0.05));
+            keywordEl.style.setProperty('--kw-blur', `${kwBlur}px`);
+            keywordEl.style.filter = `blur(${kwBlur}px)`;
+        }
         measureViewport();
         applyTextLayout();
         translationEl.textContent = translation;

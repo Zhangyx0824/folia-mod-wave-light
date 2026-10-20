@@ -126,29 +126,33 @@ function mountWaveLight(folium, container, ctx) {
     ].join('');
     container.appendChild(keywordEl);
 
-    // ---- current line + translation ---------------------------------------
-    // One centred column: the active line, with the translation of foreign
-    // songs directly beneath it (as in the reference), the whole block
-    // anchored to the page centre.
+    // ---- current line ------------------------------------------------------
+    // A centred flex column holding ONLY the active line, so the lyric is
+    // always exactly centred on its own (the translation lives outside, see
+    // below — keeping it in-flow would shift the lyric off-centre).
     const centreCol = document.createElement('div');
     centreCol.style.cssText = [
-        'position:absolute;inset:0;display:flex;flex-direction:column;',
-        'align-items:center;justify-content:center;text-align:center;',
+        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;',
         'box-sizing:border-box;padding:0 7%;pointer-events:none;',
     ].join('');
     container.appendChild(centreCol);
 
     const lineEl = document.createElement('div');
-    lineEl.style.cssText = 'max-width:100%;text-wrap:balance;line-height:1.3;font-weight:700;';
+    lineEl.style.cssText = 'max-width:100%;text-wrap:balance;line-height:1.3;font-weight:700;text-align:center;';
     centreCol.appendChild(lineEl);
 
+    // ---- translation -------------------------------------------------------
+    // A separate block in the lower part of the screen: horizontally centred,
+    // vertically at the midpoint between the watermark's lower edge and the
+    // bottom of the screen (top is computed in renderText from the watermark
+    // size). Never part of the lyric column.
     const translationEl = document.createElement('div');
     translationEl.style.cssText = [
-        'max-width:72%;text-align:center;line-height:1.5;font-weight:400;',
-        'margin-top:1.6em;pointer-events:none;',
-        'text-shadow:0 1px 8px rgba(0,0,0,0.35);',
+        'position:absolute;left:50%;top:82%;transform:translate(-50%,-50%);',
+        'max-width:70%;text-align:center;line-height:1.5;font-weight:400;',
+        'pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,0.35);',
     ].join('');
-    centreCol.appendChild(translationEl);
+    container.appendChild(translationEl);
 
     // ---- state -------------------------------------------------------------
     let disposed = false;
@@ -562,16 +566,18 @@ function mountWaveLight(folium, container, ctx) {
         keywordEl.textContent = keyword;
         keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
         // Fit the watermark: shrink it when the picked run is long, so 2–4
-        // characters never run off the page.
-        if (keyword) {
-            const kSize = Math.min(
-                height * 0.42,
-                (width * 0.8) / keyword.length,
-            );
-            keywordEl.style.fontSize = `${Math.max(28, kSize * (0.55 + 0.45 * s.textScale))}px`;
-        }
+        // characters never run off the page. The size also anchors the
+        // translation's vertical position, so it is computed even when the
+        // watermark is off.
+        const kLen = keyword.length || 3;
+        const kFontPx = Math.max(28, Math.min(height * 0.42, (width * 0.8) / kLen)
+            * (0.55 + 0.45 * s.textScale));
+        if (keyword) keywordEl.style.fontSize = `${kFontPx}px`;
+        // Translation: midpoint between the watermark's lower edge
+        // (50% + kFont/2) and the bottom of the screen.
+        translationEl.style.top = `${Math.round(height * 0.75 + kFontPx / 4)}px`;
         translationEl.textContent = translation;
-        translationEl.style.display = translation ? '' : 'none';
+        translationEl.style.display = translation && showText ? '' : 'none';
 
         // The keyword leads (it is the focal character), the line's characters
         // converge behind it; the translation just fades. The spans animate by

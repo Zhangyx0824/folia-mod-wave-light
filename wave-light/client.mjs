@@ -492,7 +492,7 @@ function mountWaveLight(folium, container, ctx) {
      * Credit lines ("作词：… 作曲：…") are special-cased: the watermark shows
      * the text after the last colon (usually a name), not the label.
      */
-    const CREDIT_RE = /(作词|作詞|作曲|编曲|編曲|填词|填詞|谱曲|譜曲|监制|監製|和声|和聲|混音|母带|母帶|lyrics?|compos\w*|written\s+by|produced\s+by)/i;
+    const CREDIT_RE = /(作词|作詞|作曲|编曲|編曲|填词|填詞|谱曲|譜曲|监制|監製|和声|和聲|混音|混響|母带|母帶|录音|錄音|制作|製作|出品|发行|發行|改编|改編|翻唱|原唱|演唱|主唱|词|曲|op|sp|吉他|钢琴|鋼琴|贝斯|貝斯|鼓|提琴|lyrics?|compos\w*|arrang\w*|written\s+by|produced\s+by|mix\w*|master\w*|record\w*|vocal\w*|perform\w*|remix\w*|guitar|bass|piano|drum\w*|violin)/i;
 
     const keywordOf = (text) => {
         const t = text.trim();
@@ -632,7 +632,8 @@ function mountWaveLight(folium, container, ctx) {
         if (effIdx >= 0) heldIdx = effIdx;
         let translation = effLine?.translation?.trim() || '';
         if (!text) {
-            text = [song?.title, song?.artist].filter(Boolean).join(' - ') || '♪';
+            // Intro: only the song title, never "title - artist".
+            text = song?.title || '♪';
             translation = '';
         }
         const keyword = s.keyword ? keywordOf(text) : '';
@@ -664,7 +665,7 @@ function mountWaveLight(folium, container, ctx) {
             // Constant soft focus: the watermark is never razor sharp. The
             // entrance animation ends at the same blur (via --kw-blur) because
             // a finished fill:both animation would otherwise pin blur(0).
-            const kwBlur = Math.max(3, Math.round(kFontPx * 0.05));
+            const kwBlur = Math.max(2, Math.round(kFontPx * 0.025));
             keywordEl.style.setProperty('--kw-blur', `${kwBlur}px`);
             keywordEl.style.filter = `blur(${kwBlur}px)`;
         }

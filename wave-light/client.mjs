@@ -163,6 +163,20 @@ function mountWaveLight(folium, container, ctx) {
     let lastTextKey = '';
     let heldIdx = -1; // last real line shown, kept across interlude gaps
     let raf = 0;
+    // Viewport anchoring: the host may hand us a container that is not the
+    // full page (padded, offset, partially covered). The lyric, watermark and
+    // translation must centre on the VISIBLE page, so the container's
+    // on-screen rect is measured and the text layers anchored to the viewport
+    // explicitly. When the container already matches the page this reduces to
+    // plain 50% centring.
+    let compensated = false;
+    let compX = 0;
+    let compY = 0;
+    let vpW = 0;
+    let vpH = 0;
+    let vpLeft = 0;
+    let vpTop = 0;
+    let kFontPx = 0;
     // The cover's dominant colour drives everything; null until extracted
     // (or when the artwork cannot be read), then the theme accent is used.
     let coverColor = null;
@@ -368,8 +382,16 @@ function mountWaveLight(folium, container, ctx) {
         g.globalCompositeOperation = 'source-over';
     };
 
+    let lastMeasure = 0;
     const frame = (now) => {
         if (disposed) return;
+        // Re-anchor periodically in case the host moves or resizes the
+        // container while we are mounted.
+        if (now - lastMeasure > 500) {
+            lastMeasure = now;
+            measureViewport();
+            applyTextLayout();
+        }
         draw(now);
         raf = requestAnimationFrame(frame);
     };
@@ -392,6 +414,43 @@ function mountWaveLight(folium, container, ctx) {
     };
 
     // ---- typography --------------------------------------------------------
+    // Anchor the text layers to the viewport. Called after kFontPx is known.
+    const measureViewport = () => {
+        compensated = false;
+        try {
+            const r = container.getBoundingClientRect();
+            if (!r.width || !r.height) return; // no layout yet (tests, hidden)
+            const vw = window.innerWidth || r.width;
+            const vh = window.innerHeight || r.height;
+            vpW = vw;
+            vpH = vh;
+            vpLeft = r.left;
+            vpTop = r.top;
+            compX = Math.round(vw / 2 - (r.left + r.width / 2));
+            compY = Math.round(vh / 2 - (r.top + r.height / 2));
+            compensated = true;
+        } catch { /* keep plain centring */ }
+    };
+
+    const applyTextLayout = () => {
+        if (compensated) {
+            const cx = `${Math.round(vpW / 2 - vpLeft)}px`;
+            const cy = `${Math.round(vpH / 2 - vpTop)}px`;
+            keywordEl.style.left = cx;
+            keywordEl.style.top = cy;
+            // shift the column so its centre lands on the viewport centre
+            centreCol.style.transform = `translate(${compX}px, ${compY}px)`;
+            translationEl.style.left = cx;
+            translationEl.style.top = `${Math.round(vpH * 0.75 + kFontPx / 4 - vpTop)}px`;
+        } else {
+            keywordEl.style.left = '50%';
+            keywordEl.style.top = '50%';
+            centreCol.style.transform = '';
+            translationEl.style.left = '50%';
+            translationEl.style.top = `${Math.round(height * 0.75 + kFontPx / 4)}px`;
+        }
+    };
+
     const applyTypography = () => {
         const theme = ctx.getTheme();
         const s = settings();
@@ -570,12 +629,11 @@ function mountWaveLight(folium, container, ctx) {
         // translation's vertical position, so it is computed even when the
         // watermark is off.
         const kLen = keyword.length || 3;
-        const kFontPx = Math.max(28, Math.min(height * 0.42, (width * 0.8) / kLen)
+        kFontPx = Math.max(28, Math.min(height * 0.42, (width * 0.8) / kLen)
             * (0.55 + 0.45 * s.textScale));
         if (keyword) keywordEl.style.fontSize = `${kFontPx}px`;
-        // Translation: midpoint between the watermark's lower edge
-        // (50% + kFont/2) and the bottom of the screen.
-        translationEl.style.top = `${Math.round(height * 0.75 + kFontPx / 4)}px`;
+        measureViewport();
+        applyTextLayout();
         translationEl.textContent = translation;
         translationEl.style.display = translation && showText ? '' : 'none';
 

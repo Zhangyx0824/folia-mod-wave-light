@@ -1,75 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
   <defs>
     <radialGradient id="bg" cx="50%" cy="44%" r="95%">
-      <stop offset="0%" stop-color="#a8871f"/>
-      <stop offset="55%" stop-color="#6e5713"/>
-      <stop offset="100%" stop-color="#3d300a"/>
+      <stop offset="0%" stop-color="#221e35"/>
+      <stop offset="55%" stop-color="#151226"/>
+      <stop offset="100%" stop-color="#0a0813"/>
     </radialGradient>
-    <linearGradient id="ringBand" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#e8c85a" stop-opacity="0"/>
-      <stop offset="30%" stop-color="#e8c85a" stop-opacity="0.4"/>
-      <stop offset="50%" stop-color="#f2d877" stop-opacity="0.85"/>
-      <stop offset="70%" stop-color="#e8c85a" stop-opacity="0.4"/>
-      <stop offset="100%" stop-color="#e8c85a" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="ringBand2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#dfbe4e" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#ecd06a" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#dfbe4e" stop-opacity="0"/>
-    </linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="3.5"/>
-    </filter>
     <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="26"/>
+      <feGaussianBlur stdDeviation="30"/>
     </filter>
+    <filter id="wmblur" x="-30%" y="-80%" width="160%" height="260%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="ringGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+    <linearGradient id="ringBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#575080" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#5f588c" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#756da8" stop-opacity="0.9"/>
+      <stop offset="65%" stop-color="#5f588c" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#575080" stop-opacity="0"/>
+    </linearGradient>
   </defs>
 
-  <!-- background wash -->
+  <!-- background wash (cover-tinted dark violet) -->
   <rect width="1280" height="720" fill="url(#bg)"/>
+  <ellipse cx="160" cy="330" rx="380" ry="260" fill="#3c3663" opacity="0.14" filter="url(#soft)"/>
+  <ellipse cx="1140" cy="300" rx="400" ry="280" fill="#3c3663" opacity="0.16" filter="url(#soft)"/>
 
-  <!-- core glows behind each cluster -->
-  <circle cx="10" cy="330" r="360" fill="#d8b545" opacity="0.22" filter="url(#soft)"/>
-  <circle cx="1272" cy="316" r="380" fill="#d8b545" opacity="0.25" filter="url(#soft)"/>
-
-  <!-- left ripple cluster (centre off the left edge) -->
-  <g fill="none" stroke="url(#ringBand)" filter="url(#glow)">
-    <circle cx="8" cy="332" r="112" stroke-width="2.4" stroke-opacity="0.85"/>
-    <circle cx="8" cy="330" r="168" stroke-width="3" stroke-opacity="0.7"/>
-    <circle cx="10" cy="328" r="226" stroke-width="3.6" stroke-opacity="0.6"/>
-    <circle cx="12" cy="330" r="286" stroke-width="2.8" stroke-opacity="0.5"/>
-    <circle cx="14" cy="333" r="348" stroke-width="2.2" stroke-opacity="0.42"/>
-    <circle cx="16" cy="336" r="412" stroke-width="1.8" stroke-opacity="0.32"/>
-    <circle cx="18" cy="340" r="478" stroke-width="1.4" stroke-opacity="0.24"/>
+  <!-- left ripple cluster -->
+  <g fill="none" stroke="url(#ringBand)" filter="url(#ringGlow)">
+    <circle cx="-10" cy="330" r="96" stroke-width="1.6" stroke-opacity="0.75"/>
+    <circle cx="-14" cy="330" r="152" stroke-width="2" stroke-opacity="0.62"/>
+    <circle cx="-18" cy="332" r="210" stroke-width="2.4" stroke-opacity="0.52"/>
+    <circle cx="-22" cy="334" r="270" stroke-width="2" stroke-opacity="0.45"/>
+    <circle cx="-26" cy="336" r="332" stroke-width="1.6" stroke-opacity="0.36"/>
+    <circle cx="-30" cy="338" r="396" stroke-width="1.2" stroke-opacity="0.28"/>
   </g>
-  <!-- rotating bright arc, left -->
-  <path fill="none" stroke="url(#ringBand2)" stroke-width="5" stroke-opacity="0.95" filter="url(#glow)"
-        d="M 8 60 A 272 272 0 0 1 236 458"/>
+  <path fill="none" stroke="url(#ringBand)" stroke-width="3" stroke-opacity="0.75" filter="url(#ringGlow)"
+        d="M -10 120 A 212 212 0 0 1 150 420"/>
 
-  <!-- right ripple cluster (centre off the right edge) -->
-  <g fill="none" stroke="url(#ringBand)" filter="url(#glow)">
-    <circle cx="1272" cy="312" r="118" stroke-width="2.4" stroke-opacity="0.85"/>
-    <circle cx="1270" cy="314" r="176" stroke-width="3" stroke-opacity="0.7"/>
-    <circle cx="1268" cy="316" r="236" stroke-width="3.6" stroke-opacity="0.6"/>
-    <circle cx="1266" cy="318" r="298" stroke-width="2.8" stroke-opacity="0.5"/>
-    <circle cx="1264" cy="322" r="362" stroke-width="2.2" stroke-opacity="0.4"/>
-    <circle cx="1262" cy="326" r="428" stroke-width="1.8" stroke-opacity="0.3"/>
-    <circle cx="1260" cy="330" r="494" stroke-width="1.4" stroke-opacity="0.22"/>
+  <!-- right ripple cluster -->
+  <g fill="none" stroke="url(#ringBand)" filter="url(#ringGlow)">
+    <circle cx="1290" cy="300" r="100" stroke-width="1.6" stroke-opacity="0.75"/>
+    <circle cx="1294" cy="300" r="158" stroke-width="2" stroke-opacity="0.62"/>
+    <circle cx="1298" cy="302" r="218" stroke-width="2.4" stroke-opacity="0.52"/>
+    <circle cx="1302" cy="304" r="280" stroke-width="2" stroke-opacity="0.45"/>
+    <circle cx="1306" cy="306" r="344" stroke-width="1.6" stroke-opacity="0.36"/>
+    <circle cx="1310" cy="308" r="410" stroke-width="1.2" stroke-opacity="0.28"/>
   </g>
-  <!-- rotating bright arc, right -->
-  <path fill="none" stroke="url(#ringBand2)" stroke-width="5" stroke-opacity="0.9" filter="url(#glow)"
-        d="M 1272 590 A 278 278 0 0 1 1042 180"/>
+  <path fill="none" stroke="url(#ringBand)" stroke-width="3" stroke-opacity="0.7" filter="url(#ringGlow)"
+        d="M 1290 96 A 210 210 0 0 0 1108 386"/>
 
-  <!-- giant keyword watermark behind the lyric (random 3-char run) -->
-  <text x="640" y="425" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="230"
-        font-weight="800" fill="#463608" fill-opacity="0.92" text-anchor="middle" letter-spacing="6">重相逢</text>
+  <!-- blurred keyword watermark (random word from the line) -->
+  <text x="640" y="392" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="238"
+        font-weight="800" fill="#47436e" fill-opacity="0.9" text-anchor="middle" letter-spacing="4"
+        filter="url(#wmblur)">life</text>
 
-  <!-- centred lyric line -->
-  <text x="640" y="348" font-family="PingFang SC, Hiragino Sans GB, serif" font-size="58"
-        font-weight="700" fill="#f7ecc4" text-anchor="middle"
-        style="text-shadow:0 2px 18px rgba(40,30,0,0.45)">再度重相逢 - 伍佰 &amp; China Blue</text>
+  <!-- centred lyric -->
+  <text x="640" y="292" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="47"
+        font-weight="700" fill="#ffffff" text-anchor="middle"
+        style="text-shadow:0 2px 16px rgba(0,0,0,0.4)">My life was kinda short</text>
 
-  <!-- translation, centred just below the lyric -->
-  <text x="640" y="428" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="24"
-        fill="#f7ecc4" fill-opacity="0.62" text-anchor="middle">我们再度重相逢</text>
+  <!-- translation, separate block below -->
+  <text x="640" y="458" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="21"
+        fill="#c6c4d6" fill-opacity="0.85" text-anchor="middle">我的人生很短暂</text>
 </svg>

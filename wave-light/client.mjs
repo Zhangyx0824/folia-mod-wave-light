@@ -1,11 +1,11 @@
 // client.mjs — the whole wave-light mod.
 //
-// A lyric animation *mode* in the spirit of QQ Music's 「动感波光」: the player
-// page becomes a dark, water-like surface whose colour is pulled from the
-// current song's cover art. Luminous wave bands and slow drifting light
-// patches flow across it (canvas, additive blending), and the lyrics sit
-// centred on top — the active line tinted with a bright shade of the same
-// cover colour, the surrounding lines dimmed.
+// A lyric animation *mode* modelled on QQ Music's 「动感波光」: the page is a
+// dark wash tinted by the current cover's dominant colour, with two large
+// slowly-moving concentric ripple clusters on the left and right (canvas,
+// additive blending). The active lyric line sits dead centre, enlarged; one
+// keyword character from the line floats behind it as a huge dark watermark;
+// a translation (foreign songs) is tucked into the bottom-left corner.
 //
 // It is a normal visualizer entry, so it only draws when the user selects this
 // mode: every other mode is completely unaffected.
@@ -26,7 +26,7 @@ export default function activate(folium) {
         {
             key: 'waveSource', type: 'select', defaultValue: 'cover',
             label: label('波光配色', 'Wave colour'),
-            description: label('背景与光波、歌词的颜色来源；跟随封面会提取当前封面的主色', 'Where the background, waves and lyrics take their colour; “cover” extracts the dominant colour of the artwork'),
+            description: label('背景与波纹、歌词的颜色来源；跟随封面会提取当前封面的主色', 'Where the background, ripples and lyrics take their colour; “cover” extracts the dominant colour of the artwork'),
             options: [
                 { value: 'cover', label: label('跟随封面', 'Cover colour') },
                 { value: 'theme', label: label('主题色', 'Theme colour') },
@@ -35,25 +35,21 @@ export default function activate(folium) {
         {
             key: 'brightness', type: 'number', defaultValue: 1, min: 0.3, max: 2, step: 0.05,
             label: label('波光亮度', 'Wave brightness'),
-            description: label('光带与光斑的整体强度', 'Overall intensity of the light bands and patches'),
+            description: label('波纹与光晕的整体强度', 'Overall intensity of the ripples and glow'),
         },
         {
             key: 'speed', type: 'number', defaultValue: 1, min: 0.2, max: 3, step: 0.1,
             label: label('流动速度', 'Flow speed'),
-            description: label('波光流动的整体快慢', 'How fast the waves drift'),
+            description: label('波纹移动的整体快慢', 'How fast the ripples move'),
         },
         {
-            key: 'density', type: 'number', defaultValue: 8, min: 4, max: 14, step: 1,
-            label: label('光带数量', 'Band count'),
-            description: label('水面上光带的条数', 'How many wave bands cross the surface'),
+            key: 'keyword', type: 'boolean', defaultValue: true,
+            label: label('关键字水印', 'Keyword watermark'),
+            description: label('歌词背后的大字号关键字', 'A huge keyword from the current line behind the lyrics'),
         },
         {
             key: 'textScale', type: 'number', defaultValue: 1, min: 0.6, max: 1.8, step: 0.05,
             label: label('歌词字号', 'Lyric size'),
-        },
-        {
-            key: 'showNext', type: 'boolean', defaultValue: true,
-            label: label('显示下一句', 'Show next line'),
         },
     ];
 
@@ -70,10 +66,9 @@ export default function activate(folium) {
 }
 
 // ---------------------------------------------------------------------------
-// The mode. Background is a DOM gradient tinted by the cover colour; the waves
-// are one canvas animated with requestAnimationFrame (additive blending, a
-// handful of paths per frame — cheap); the lyrics are DOM so the theme's font
-// stack and the user's lyric size apply without canvas text layout.
+// The mode. Background is a DOM gradient tinted by the cover colour; the two
+// ripple clusters are one canvas animated with requestAnimationFrame (additive
+// blending, cheap); lyrics, keyword watermark and translation are DOM.
 // ---------------------------------------------------------------------------
 
 function mountWaveLight(folium, container, ctx) {
@@ -83,15 +78,20 @@ function mountWaveLight(folium, container, ctx) {
     style.textContent = [
         '.wave-line-in { animation: wave-line-in 0.38s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '@keyframes wave-line-in {',
-        '  from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); }',
+        '  from { opacity: 0; transform: scale(0.985); filter: blur(3px); }',
         '  to { opacity: 1; transform: none; filter: blur(0); }',
+        '}',
+        '.wave-keyword-in { animation: wave-keyword-in 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
+        '@keyframes wave-keyword-in {',
+        '  from { opacity: 0; transform: translate(-50%, -50%) scale(1.06); }',
+        '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
         '}',
     ].join('\n');
     container.appendChild(style);
 
     // ---- background --------------------------------------------------------
     // A deep radial wash in the artwork's colour; the canvas above it adds the
-    // moving light. Both are re-tinted when the cover colour arrives.
+    // moving ripples. Both are re-tinted when the cover colour arrives.
     const bg = document.createElement('div');
     bg.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
     container.appendChild(bg);
@@ -101,36 +101,41 @@ function mountWaveLight(folium, container, ctx) {
     container.appendChild(cv);
     const g = cv.getContext('2d');
 
-    // ---- lyrics ------------------------------------------------------------
-    const textWrap = document.createElement('div');
-    textWrap.style.cssText = [
-        'position:absolute;inset:0;display:flex;flex-direction:column;',
-        'align-items:center;justify-content:center;text-align:center;',
-        'box-sizing:border-box;padding:0 6%;pointer-events:none;',
+    // ---- keyword watermark -------------------------------------------------
+    // One keyword (a CJK char, or the first word of a latin line) from the
+    // active line, huge and dark, floating behind the lyric text.
+    const keywordEl = document.createElement('div');
+    keywordEl.style.cssText = [
+        'position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);',
+        'font-weight:800;line-height:1;pointer-events:none;user-select:none;',
+        'opacity:0.92;letter-spacing:0.02em;white-space:nowrap;',
     ].join('');
-    container.appendChild(textWrap);
+    container.appendChild(keywordEl);
 
-    const header = document.createElement('div');
-    header.style.cssText = 'margin-bottom:1.5em;line-height:1.35;';
-
-    const titleEl = document.createElement('div');
-    const artistEl = document.createElement('div');
-    header.append(titleEl, artistEl);
+    // ---- current line ------------------------------------------------------
+    const centerWrap = document.createElement('div');
+    centerWrap.style.cssText = [
+        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;',
+        'box-sizing:border-box;padding:0 7%;pointer-events:none;',
+    ].join('');
+    container.appendChild(centerWrap);
 
     const lineEl = document.createElement('div');
-    lineEl.style.cssText = 'line-height:1.34;font-weight:700;text-wrap:balance;';
+    lineEl.style.cssText = 'line-height:1.3;font-weight:700;text-wrap:balance;text-align:center;';
+    centerWrap.appendChild(lineEl);
 
+    // ---- translation -------------------------------------------------------
+    // Foreign songs: pinned to the bottom-left, never centred.
     const translationEl = document.createElement('div');
-    translationEl.style.cssText = 'line-height:1.4;font-weight:400;margin-top:0.6em;';
-
-    const nextEl = document.createElement('div');
-    nextEl.style.cssText = 'line-height:1.4;font-weight:400;margin-top:1.6em;';
-
-    textWrap.append(header, lineEl, translationEl, nextEl);
+    translationEl.style.cssText = [
+        'position:absolute;left:5%;bottom:6.5%;max-width:62%;',
+        'text-align:left;line-height:1.45;font-weight:400;pointer-events:none;',
+        'text-shadow:0 1px 8px rgba(0,0,0,0.35);',
+    ].join('');
+    container.appendChild(translationEl);
 
     // ---- state -------------------------------------------------------------
     let disposed = false;
-    let paused = ctx.isPaused();
     let width = 1;
     let height = 1;
     let dpr = Math.min(window.devicePixelRatio || 1, 1.75);
@@ -148,15 +153,15 @@ function mountWaveLight(folium, container, ctx) {
             waveSource: v.waveSource === 'theme' ? 'theme' : 'cover',
             brightness: clampNum(v.brightness, 0.3, 2, 1),
             speed: clampNum(v.speed, 0.2, 3, 1),
-            density: Math.round(clampNum(v.density, 4, 14, 8)),
+            keyword: v.keyword !== false,
             textScale: clampNum(v.textScale, 0.6, 1.8, 1),
-            showNext: v.showNext !== false,
         };
     };
 
     // ---- palette -----------------------------------------------------------
     // One base colour (cover or theme) is expanded into: the dark background
-    // wash, the wave colour, and a bright low-saturation tint for the lyrics.
+    // wash, the ripple colour, a bright low-saturation tint for the lyric, and
+    // a dark shade for the keyword watermark.
     let palette = null;
 
     const baseColor = () => {
@@ -174,9 +179,10 @@ function mountWaveLight(folium, container, ctx) {
         return {
             h,
             sat,
-            li,
+            base: rgb,
             wave: { r: wave[0], g: wave[1], b: wave[2] },
             tint: { r: tint[0], g: tint[1], b: tint[2] },
+            keyword: scaleRgb(rgb, 0.35),
             bgMid: scaleRgb(rgb, 0.24),
             bgEdge: scaleRgb(rgb, 0.07),
             bgDeep: scaleRgb(rgb, 0.04),
@@ -189,15 +195,15 @@ function mountWaveLight(folium, container, ctx) {
         const { wave, tint } = palette;
         bg.style.background = 'radial-gradient(135% 100% at 50% 44%, '
             + `${cssRgb(palette.bgMid)} 0%, ${cssRgb(palette.bgEdge)} 58%, ${cssRgb(palette.bgDeep)} 100%)`;
-        lineEl.style.color = cssRgba(tint, 0.96);
-        titleEl.style.color = cssRgba(tint, 0.88);
-        artistEl.style.color = cssRgba(tint, 0.55);
-        translationEl.style.color = cssRgba(tint, 0.66);
-        nextEl.style.color = cssRgba(tint, 0.22);
+        keywordEl.style.color = cssRgba(palette.keyword, 0.92);
+        keywordEl.style.textShadow = `0 0 ${Math.max(8, height * 0.02)}px ${cssRgba(palette.keyword, 0.35)}`;
+        lineEl.style.color = cssRgba(tint, 0.97);
+        lineEl.style.textShadow = `0 1px ${Math.max(10, height * 0.03)}px ${cssRgba(palette.keyword, 0.5)}`;
+        translationEl.style.color = cssRgba(tint, 0.68);
         void wave;
     };
 
-    // ---- canvas ------------------------------------------------------------
+    // ---- canvas: two moving ripple clusters --------------------------------
     const resizeCanvas = () => {
         dpr = Math.min(window.devicePixelRatio || 1, 1.75);
         const w = Math.max(1, Math.round(width * dpr));
@@ -208,10 +214,79 @@ function mountWaveLight(folium, container, ctx) {
         }
     };
 
-    // Deterministic pseudo-random per band index, so the composition is
-    // stable across frames instead of re-rolled every tick.
+    // Deterministic pseudo-random per index, so the composition is stable
+    // across frames instead of re-rolled every tick.
     const frac = (v) => v - Math.floor(v);
     const rand = (i, salt) => frac(Math.sin((i + 1) * 127.1 + salt * 311.7) * 43758.5453);
+
+    // One cluster: a soft core glow plus concentric rings whose brightness is
+    // banded vertically (bright at the middle, fading up/down — light on
+    // water), and a few brighter arcs slowly rotating. cx sits at (or just
+    // inside) the screen edge, so half of each ring is off-screen.
+    const drawCluster = (cx, cy, baseR, t, seed, alphaScale) => {
+        const w = cv.width;
+        const h = cv.height;
+        const { wave } = palette;
+
+        // core glow
+        const coreR = baseR * 0.9;
+        const rg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, coreR));
+        rg.addColorStop(0, cssRgba(wave, (0.15 * alphaScale).toFixed(3)));
+        rg.addColorStop(0.55, cssRgba(wave, (0.06 * alphaScale).toFixed(3)));
+        rg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = rg;
+        g.fillRect(cx - coreR, cy - coreR, coreR * 2, coreR * 2);
+
+        // concentric rings
+        const n = 9;
+        for (let i = 1; i <= n; i++) {
+            const r1 = rand(i + seed * 13, 1);
+            const r2 = rand(i + seed * 13, 2);
+            const rr = baseR * (0.16 + 0.92 * (i / n))
+                * (1 + 0.028 * Math.sin(t * (0.22 + 0.1 * r1) + seed * 2.1 + i * 0.8));
+            const breathe = 0.65 + 0.35 * Math.sin(t * (0.14 + 0.08 * r2) + i * 1.3 + seed);
+            const alpha = Math.max(0.008, alphaScale * (0.035 + 0.1 * (1 - i / n)) * breathe);
+
+            // vertical banding: fade the ring out toward its top and bottom
+            const grad = g.createLinearGradient(0, cy - rr, 0, cy + rr);
+            grad.addColorStop(0, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+            grad.addColorStop(0.3, `rgba(${wave.r},${wave.g},${wave.b},${(alpha * 0.6).toFixed(3)})`);
+            grad.addColorStop(0.5, `rgba(${wave.r},${wave.g},${wave.b},${alpha.toFixed(3)})`);
+            grad.addColorStop(0.7, `rgba(${wave.r},${wave.g},${wave.b},${(alpha * 0.6).toFixed(3)})`);
+            grad.addColorStop(1, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+            g.strokeStyle = grad;
+            g.lineWidth = Math.max(0.8, h * (0.0012 + 0.005 * r2));
+            g.shadowColor = cssRgba(wave, Math.min(0.55, alpha * 1.3));
+            g.shadowBlur = h * 0.018;
+            g.beginPath();
+            g.arc(cx, cy, rr, 0, Math.PI * 2);
+            g.stroke();
+        }
+
+        // slowly rotating bright arcs — the "动" in 动感波光
+        for (let k = 0; k < 3; k++) {
+            const r1 = rand(k + seed * 31, 4);
+            const r2 = rand(k + seed * 31, 6);
+            const rr = baseR * (0.28 + 0.72 * r1) * (1 + 0.02 * Math.sin(t * 0.2 + k));
+            const a0 = t * (0.05 + 0.07 * r1) * (k % 2 ? -1 : 1) + k * 2.4 + seed * 1.7;
+            const span = 0.9 + 1.5 * r2;
+            const alpha = Math.max(0.01, alphaScale * (0.09 + 0.08 * rand(k + seed * 31, 5))
+                * (0.7 + 0.3 * Math.sin(t * 0.3 + k * 2.2)));
+
+            const grad = g.createLinearGradient(0, cy - rr, 0, cy + rr);
+            grad.addColorStop(0, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+            grad.addColorStop(0.5, `rgba(${wave.r},${wave.g},${wave.b},${alpha.toFixed(3)})`);
+            grad.addColorStop(1, `rgba(${wave.r},${wave.g},${wave.b},0)`);
+            g.strokeStyle = grad;
+            g.lineWidth = Math.max(1, h * (0.0018 + 0.0035 * r1));
+            g.shadowColor = cssRgba(wave, Math.min(0.6, alpha * 1.5));
+            g.shadowBlur = h * 0.02;
+            g.beginPath();
+            g.arc(cx, cy, rr, a0, a0 + span);
+            g.stroke();
+        }
+        void w;
+    };
 
     const draw = (now) => {
         const w = cv.width;
@@ -224,66 +299,23 @@ function mountWaveLight(folium, container, ctx) {
         g.clearRect(0, 0, w, h);
         g.globalCompositeOperation = 'lighter';
 
-        // Slow drifting glow patches — the broad "light on water" fields.
-        for (let i = 0; i < 3; i++) {
-            const cx = w * (0.5 + 0.36 * Math.sin(t * (0.1 + i * 0.03) + i * 2.09));
-            const cy = h * (0.46 + 0.28 * Math.cos(t * (0.08 + i * 0.025) + i * 1.73));
-            const rad = h * (0.34 + 0.09 * Math.sin(t * 0.17 + i * 1.1));
-            const a = Math.max(0, 0.11 * s.brightness * (0.7 + 0.3 * Math.sin(t * 0.23 + i * 2.4)));
-            const rg = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, rad));
-            rg.addColorStop(0, cssRgba(wave, a));
-            rg.addColorStop(1, 'rgba(0,0,0,0)');
-            g.fillStyle = rg;
-            g.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
-        }
+        // two ripple clusters hugging the left and right edges
+        const baseR = Math.min(w, h) * 0.62;
+        const cy = h * (0.45 + 0.02 * Math.sin(t * 0.09));
+        const cxL = w * 0.015 + w * 0.012 * Math.sin(t * 0.06 + 1.2);
+        const cxR = w * 0.985 + w * 0.012 * Math.sin(t * 0.055 + 3.9);
+        drawCluster(cxL, cy, baseR, t, 1, 1);
+        drawCluster(cxR, cy * 0.98, baseR * 1.04, t * 1.06, 2, 0.92);
 
-        // The wave bands: stacked sine lines with a glow, brighter around the
-        // vertical middle of the stage, each with its own hue whisper.
-        const n = s.density;
-        for (let i = 0; i < n; i++) {
-            const p = n === 1 ? 0.5 : i / (n - 1);
-            const r1 = rand(i, 1);
-            const r2 = rand(i, 2);
-            const r3 = rand(i, 3);
-
-            const yBase = h * (0.26 + 0.5 * p) + Math.sin(t * 0.4 + i * 1.3) * h * 0.012;
-            const amp = h * (0.012 + 0.03 * r1);
-            const wl = w * (0.3 + 0.3 * r2);
-            const ph = t * (0.35 + 0.55 * r3) * 1.8 + i * 1.93;
-
-            const focus = Math.max(0, 1 - Math.abs(p - 0.5) * 1.15);
-            const alpha = Math.max(0.012, (0.05 + 0.13 * focus) * s.brightness);
-            const [br, bgc, bb] = hslToRgb(
-                (palette.h + (r1 - 0.5) * 0.07 + 1) % 1,
-                Math.min(0.95, palette.sat * 1.1 + 0.1),
-                Math.min(0.72, 0.5 + 0.1 * r2),
-            );
-
-            const grad = g.createLinearGradient(0, 0, w, 0);
-            grad.addColorStop(0, `rgba(${br},${bgc},${bb},0)`);
-            grad.addColorStop(0.22, `rgba(${br},${bgc},${bb},${(alpha * 0.45).toFixed(3)})`);
-            grad.addColorStop(0.5, `rgba(${br},${bgc},${bb},${alpha.toFixed(3)})`);
-            grad.addColorStop(0.78, `rgba(${br},${bgc},${bb},${(alpha * 0.45).toFixed(3)})`);
-            grad.addColorStop(1, `rgba(${br},${bgc},${bb},0)`);
-
-            g.strokeStyle = grad;
-            g.lineWidth = Math.max(0.7, h * (0.0012 + 0.0035 * r3));
-            g.shadowColor = `rgba(${br},${bgc},${bb},${Math.min(0.75, alpha * 1.5).toFixed(3)})`;
-            g.shadowBlur = h * 0.02;
-
-            g.beginPath();
-            const steps = 72;
-            for (let k = 0; k <= steps; k++) {
-                const x = (k / steps) * w;
-                const y = yBase
-                    + Math.sin((x / wl) * Math.PI * 2 + ph) * amp
-                    + Math.sin((x / (wl * 0.41)) * Math.PI * 2 - t * 0.9 + i * 2.4) * amp * 0.45
-                    + Math.sin((x / (wl * 2.6)) * Math.PI * 2 + t * 0.35 + i) * amp * 0.7;
-                if (k === 0) g.moveTo(x, y);
-                else g.lineTo(x, y);
-            }
-            g.stroke();
-        }
+        // a faint drifting glow between them, for depth
+        const px = w * (0.5 + 0.18 * Math.sin(t * 0.08 + 0.7));
+        const py = h * (0.42 + 0.08 * Math.cos(t * 0.06 + 2.1));
+        const pr = h * 0.4;
+        const pga = g.createRadialGradient(px, py, 0, px, py, pr);
+        pga.addColorStop(0, cssRgba(wave, (0.05 * s.brightness).toFixed(3)));
+        pga.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = pga;
+        g.fillRect(px - pr, py - pr, pr * 2, pr * 2);
 
         g.shadowBlur = 0;
         g.globalCompositeOperation = 'source-over';
@@ -319,28 +351,39 @@ function mountWaveLight(folium, container, ctx) {
         const display = ctx.getDisplay();
         const stack = safeFontStack(folium, theme);
         const weight = safeWeight(folium, theme, 700);
-        const base = Math.round(Math.min(Math.max(height * 0.058, 16), 68) * s.textScale * display.lyricsFontScale);
+        // The active line is the centrepiece: noticeably larger than a normal
+        // lyric layout (the reference runs it at roughly a tenth of the page).
+        const base = Math.round(Math.min(Math.max(height * 0.085, 18), 110) * s.textScale * display.lyricsFontScale);
 
-        textWrap.style.fontFamily = stack;
-        titleEl.style.cssText = `font-size:${Math.round(base * 0.38)}px;`
-            + `color:${titleEl.style.color || '#fff'};opacity:0.9;font-weight:600;`
-            + 'letter-spacing:0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;';
-        artistEl.style.cssText = `font-size:${Math.round(base * 0.32)}px;`
-            + `color:${artistEl.style.color || '#fff'};opacity:0.8;`
-            + 'margin-top:0.35em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;';
+        container.style.fontFamily = stack;
         lineEl.style.fontSize = `${base}px`;
         lineEl.style.fontWeight = String(weight);
-        translationEl.style.fontSize = `${Math.round(base * 0.58)}px`;
-        translationEl.style.opacity = '0.85';
-        nextEl.style.fontSize = `${Math.round(base * 0.56)}px`;
+        keywordEl.style.fontSize = `${Math.round(Math.min(Math.max(height * 0.42, 40), 620) * (0.55 + 0.45 * s.textScale))}px`;
+        translationEl.style.fontSize = `${Math.round(base * 0.4)}px`;
     };
 
     // ---- text --------------------------------------------------------------
+    const keywordOf = (text) => {
+        const t = text.trim();
+        if (!t) return '';
+        // CJK line: its first han character reads best as a watermark.
+        const han = t.match(/[\u3400-\u9fff\uf900-\ufaff]/);
+        if (han) return han[0];
+        // kana line: first kana run.
+        const kana = t.match(/[\u3040-\u30ff]+/);
+        if (kana) return kana[0].slice(0, 2);
+        // latin line: the first word, capped so it still fits.
+        const word = t.split(/[\s,，.。!！?？;；:：'"、·—-]+/).filter(Boolean)[0];
+        return word ? word.slice(0, 10) : '';
+    };
+
     const renderText = (animate) => {
         const display = ctx.getDisplay();
         const s = settings();
         const showText = display.showText !== false;
-        textWrap.style.display = showText ? '' : 'none';
+        centerWrap.style.display = showText ? '' : 'none';
+        keywordEl.style.display = showText && s.keyword ? '' : 'none';
+        translationEl.style.display = showText ? '' : 'none';
         if (!showText) {
             // Keep the line index in sync so `onLyricTime` does not keep
             // re-entering here on every clock tick while the text is hidden.
@@ -349,36 +392,35 @@ function mountWaveLight(folium, container, ctx) {
         }
 
         const song = ctx.song;
-        titleEl.textContent = song?.title || '';
-        artistEl.textContent = song?.artist || '';
-
         const index = ctx.staticMode && ctx.staticLineIndex !== null
             ? ctx.staticLineIndex
             : ctx.getLineIndex();
         const line = index >= 0 ? ctx.lines[index] : null;
-        const nextLine = s.showNext && index + 1 < ctx.lines.length ? ctx.lines[index + 1] : null;
 
-        const text = line?.fullText?.trim() || '';
+        // Active lyric; before the first line (intro) show "title - artist"
+        // the way the reference does.
+        let text = line?.fullText?.trim() || '';
+        if (!text) text = [song?.title, song?.artist].filter(Boolean).join(' - ') || '♪';
         const translation = line?.translation?.trim() || '';
-        const nextText = nextLine?.fullText?.trim() || '';
+        const keyword = s.keyword ? keywordOf(text) : '';
 
         // Re-animate only when the line really changed (the clock ticks far
         // more often than lines change).
-        const key = `${index}|${text}|${translation}|${nextText}`;
+        const key = `${index}|${text}|${translation}|${keyword}`;
         const changed = key !== lastTextKey;
         lastTextKey = key;
 
-        lineEl.textContent = text || '♪';
+        lineEl.textContent = text;
+        keywordEl.textContent = keyword;
+        keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
         translationEl.textContent = translation;
         translationEl.style.display = translation ? '' : 'none';
-        nextEl.textContent = nextText;
-        nextEl.style.display = nextText ? '' : 'none';
 
-        if (changed && animate && text && !ctx.staticMode) {
-            for (const el of [lineEl, translationEl]) {
-                el.classList.remove('wave-line-in');
+        if (changed && animate && !ctx.staticMode) {
+            for (const el of [keywordEl, lineEl, translationEl]) {
+                el.classList.remove('wave-line-in', 'wave-keyword-in');
                 void el.offsetWidth;
-                el.classList.add('wave-line-in');
+                el.classList.add(el === keywordEl ? 'wave-keyword-in' : 'wave-line-in');
             }
         }
         lastLineIndex = index;
@@ -397,7 +439,6 @@ function mountWaveLight(folium, container, ctx) {
                     if (disposed || coverUrlForColor !== cover) return;
                     coverColor = color;
                     applyPalette();
-                    applyTypography();
                 });
             }
         } else {
@@ -405,12 +446,12 @@ function mountWaveLight(folium, container, ctx) {
             coverColor = null;
         }
         applyPalette();
-        applyTypography();
     };
 
     const refreshAll = (animate) => {
         resizeCanvas();
         applyCover();
+        applyTypography();
         renderText(animate);
     };
 
@@ -429,13 +470,12 @@ function mountWaveLight(folium, container, ctx) {
     });
 
     const offChange = ctx.onChange(() => {
-        paused = ctx.isPaused();
         refreshAll(false);
     });
 
     // Line changes come with the lyric clock; only redraw the text when the
-    // active line actually moved. The waves keep flowing regardless of pause —
-    // the surface stays alive, as in the reference.
+    // active line actually moved. The ripples keep flowing regardless of
+    // pause — the surface stays alive, as in the reference.
     const offTime = ctx.onLyricTime(() => {
         const index = ctx.staticMode && ctx.staticLineIndex !== null
             ? ctx.staticLineIndex

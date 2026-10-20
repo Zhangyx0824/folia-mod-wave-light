@@ -1,67 +1,75 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
   <defs>
     <radialGradient id="bg" cx="50%" cy="44%" r="95%">
-      <stop offset="0%" stop-color="#12335e"/>
-      <stop offset="58%" stop-color="#081527"/>
-      <stop offset="100%" stop-color="#040b16"/>
+      <stop offset="0%" stop-color="#a8871f"/>
+      <stop offset="55%" stop-color="#6e5713"/>
+      <stop offset="100%" stop-color="#3d300a"/>
     </radialGradient>
-    <linearGradient id="fadeL" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#4da3ff" stop-opacity="0"/>
-      <stop offset="22%" stop-color="#4da3ff" stop-opacity="0.35"/>
-      <stop offset="50%" stop-color="#6fbcff" stop-opacity="0.85"/>
-      <stop offset="78%" stop-color="#4da3ff" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#4da3ff" stop-opacity="0"/>
+    <linearGradient id="ringBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8c85a" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#e8c85a" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#f2d877" stop-opacity="0.85"/>
+      <stop offset="70%" stop-color="#e8c85a" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#e8c85a" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="fadeL2" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#7fd4ff" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#9fe0ff" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#7fd4ff" stop-opacity="0"/>
+    <linearGradient id="ringBand2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dfbe4e" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ecd06a" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#dfbe4e" stop-opacity="0"/>
     </linearGradient>
-    <filter id="glow" x="-5%" y="-60%" width="110%" height="220%">
-      <feGaussianBlur stdDeviation="2.2" result="b"/>
-      <feMerge>
-        <feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5"/>
     </filter>
-    <filter id="soft" x="-40%" y="-120%" width="180%" height="340%">
-      <feGaussianBlur stdDeviation="42"/>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="26"/>
     </filter>
-    <linearGradient id="titleFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#eaf6ff"/>
-      <stop offset="100%" stop-color="#bfe2ff"/>
-    </linearGradient>
   </defs>
 
   <!-- background wash -->
   <rect width="1280" height="720" fill="url(#bg)"/>
 
-  <!-- drifting glow patches -->
-  <ellipse cx="420" cy="330" rx="330" ry="180" fill="#2f7fd6" opacity="0.20" filter="url(#soft)"/>
-  <ellipse cx="920" cy="430" rx="360" ry="200" fill="#1f5fa8" opacity="0.24" filter="url(#soft)"/>
-  <ellipse cx="700" cy="260" rx="260" ry="140" fill="#57a8ef" opacity="0.14" filter="url(#soft)"/>
+  <!-- core glows behind each cluster -->
+  <circle cx="10" cy="330" r="360" fill="#d8b545" opacity="0.22" filter="url(#soft)"/>
+  <circle cx="1272" cy="316" r="380" fill="#d8b545" opacity="0.25" filter="url(#soft)"/>
 
-  <!-- wave bands (back, dimmer) -->
-  <g fill="none" stroke="url(#fadeL)" filter="url(#glow)">
-    <path stroke-opacity="0.5" stroke-width="2" d="M0 470 C 180 440, 340 500, 520 472 S 880 430, 1060 466 S 1220 486, 1280 470"/>
-    <path stroke-opacity="0.62" stroke-width="2.4" d="M0 445 C 200 470, 380 415, 560 442 S 900 480, 1080 448 S 1230 428, 1280 444"/>
-    <path stroke-opacity="0.75" stroke-width="2.8" d="M0 412 C 170 388, 360 440, 540 415 S 860 375, 1040 408 S 1220 428, 1280 410"/>
-    <path stroke-opacity="0.9" stroke-width="3.4" d="M0 380 C 210 405, 390 350, 580 378 S 920 415, 1100 384 S 1240 366, 1280 380"/>
-    <path stroke-opacity="0.68" stroke-width="2.6" d="M0 350 C 190 328, 370 375, 550 352 S 880 318, 1060 346 S 1230 362, 1280 350"/>
-    <path stroke-opacity="0.45" stroke-width="2" d="M0 322 C 200 340, 400 300, 600 320 S 940 348, 1120 326 S 1250 316, 1280 324"/>
-    <path stroke-opacity="0.62" stroke-width="2.6" d="M0 296 C 180 278, 380 316, 570 298 S 900 270, 1080 292 S 1240 302, 1280 296"/>
-    <path stroke-opacity="0.4" stroke-width="1.8" d="M0 268 C 210 285, 410 250, 610 268 S 950 292, 1130 272 S 1255 264, 1280 270"/>
+  <!-- left ripple cluster (centre off the left edge) -->
+  <g fill="none" stroke="url(#ringBand)" filter="url(#glow)">
+    <circle cx="8" cy="332" r="112" stroke-width="2.4" stroke-opacity="0.85"/>
+    <circle cx="8" cy="330" r="168" stroke-width="3" stroke-opacity="0.7"/>
+    <circle cx="10" cy="328" r="226" stroke-width="3.6" stroke-opacity="0.6"/>
+    <circle cx="12" cy="330" r="286" stroke-width="2.8" stroke-opacity="0.5"/>
+    <circle cx="14" cy="333" r="348" stroke-width="2.2" stroke-opacity="0.42"/>
+    <circle cx="16" cy="336" r="412" stroke-width="1.8" stroke-opacity="0.32"/>
+    <circle cx="18" cy="340" r="478" stroke-width="1.4" stroke-opacity="0.24"/>
   </g>
-  <!-- one bright crest -->
-  <path fill="none" stroke="url(#fadeL2)" stroke-width="4" stroke-opacity="1" filter="url(#glow)"
-        d="M0 396 C 200 420, 400 362, 600 388 S 940 424, 1120 392 S 1245 376, 1280 388"/>
+  <!-- rotating bright arc, left -->
+  <path fill="none" stroke="url(#ringBand2)" stroke-width="5" stroke-opacity="0.95" filter="url(#glow)"
+        d="M 8 60 A 272 272 0 0 1 236 458"/>
 
-  <!-- lyrics -->
-  <g font-family="PingFang SC, Hiragino Sans GB, sans-serif" text-anchor="middle">
-    <text x="640" y="205" font-size="26" fill="#cfe6ff" fill-opacity="0.78" font-weight="600">夜航星</text>
-    <text x="640" y="240" font-size="21" fill="#cfe6ff" fill-opacity="0.5">Annotated Astronomer</text>
-
-    <text x="640" y="580" font-size="52" fill="url(#titleFade)" font-weight="700" letter-spacing="2">穿过昼夜与山海</text>
-    <text x="640" y="628" font-size="26" fill="#cfe6ff" fill-opacity="0.5">越过人海 只为与你相认</text>
-    <text x="640" y="668" font-size="23" fill="#cfe6ff" fill-opacity="0.18">风把故事吹向下一站</text>
+  <!-- right ripple cluster (centre off the right edge) -->
+  <g fill="none" stroke="url(#ringBand)" filter="url(#glow)">
+    <circle cx="1272" cy="312" r="118" stroke-width="2.4" stroke-opacity="0.85"/>
+    <circle cx="1270" cy="314" r="176" stroke-width="3" stroke-opacity="0.7"/>
+    <circle cx="1268" cy="316" r="236" stroke-width="3.6" stroke-opacity="0.6"/>
+    <circle cx="1266" cy="318" r="298" stroke-width="2.8" stroke-opacity="0.5"/>
+    <circle cx="1264" cy="322" r="362" stroke-width="2.2" stroke-opacity="0.4"/>
+    <circle cx="1262" cy="326" r="428" stroke-width="1.8" stroke-opacity="0.3"/>
+    <circle cx="1260" cy="330" r="494" stroke-width="1.4" stroke-opacity="0.22"/>
   </g>
+  <!-- rotating bright arc, right -->
+  <path fill="none" stroke="url(#ringBand2)" stroke-width="5" stroke-opacity="0.9" filter="url(#glow)"
+        d="M 1272 590 A 278 278 0 0 1 1042 180"/>
+
+  <!-- giant keyword watermark behind the lyric -->
+  <text x="596" y="420" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="320"
+        font-weight="800" fill="#463608" fill-opacity="0.92" text-anchor="middle">再</text>
+
+  <!-- centred lyric line -->
+  <text x="640" y="348" font-family="PingFang SC, Hiragino Sans GB, serif" font-size="58"
+        font-weight="700" fill="#f7ecc4" text-anchor="middle"
+        style="text-shadow:0 2px 18px rgba(40,30,0,0.45)">再度重相逢 - 伍佰 &amp; China Blue</text>
+
+  <!-- translation, bottom-left, never centred -->
+  <text x="66" y="668" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="24"
+        fill="#f7ecc4" fill-opacity="0.6">我们再度重相逢</text>
 </svg>

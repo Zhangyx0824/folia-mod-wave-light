@@ -76,18 +76,28 @@ function mountWaveLight(folium, container, ctx) {
 
     const style = document.createElement('style');
     style.textContent = [
-        // Line and keyword are absolutely centred (left/top 50% +
-        // translate(-50%,-50%)), so the entrance animations must carry the
-        // same transform.
-        '.wave-line-in { animation: wave-line-in 0.38s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
-        '@keyframes wave-line-in {',
-        '  from { opacity: 0; transform: translate(-50%, -50%) scale(0.985); filter: blur(3px); }',
-        '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }',
-        '}',
-        '.wave-keyword-in { animation: wave-keyword-in 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
+        // The line and keyword are absolutely centred (left/top 50% +
+        // translate(-50%,-50%)); entrance animations must carry the same
+        // transform.
+        '.wave-keyword-in { animation: wave-keyword-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '@keyframes wave-keyword-in {',
         '  from { opacity: 0; transform: translate(-50%, -50%) scale(1.06); }',
         '  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
+        '}',
+        '.wave-fade-in { animation: wave-fade-in 0.5s ease-out both; }',
+        '@keyframes wave-fade-in {',
+        '  from { opacity: 0; filter: blur(4px); }',
+        '  to { opacity: 1; filter: blur(0); }',
+        '}',
+        // Per-character entrance for the active line: the centre character
+        // surfaces first, the outer characters converge from their own side
+        // (translateX from --dx to 0), everything sharpening from blur.
+        '.wave-ch { display:inline-block; will-change:transform,filter,opacity;',
+        '  animation: wave-ch-in 0.46s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
+        '.wave-ch-static { display:inline-block; }',
+        '@keyframes wave-ch-in {',
+        '  from { opacity: 0; filter: blur(10px); transform: translateX(var(--dx, 0em)); }',
+        '  to { opacity: 1; filter: blur(0); transform: translateX(0); }',
         '}',
     ].join('\n');
     container.appendChild(style);
@@ -437,6 +447,55 @@ function mountWaveLight(folium, container, ctx) {
         return pool.slice(start, start + len);
     };
 
+    /**
+     * Build the active line out of per-token spans so the entrance can be
+     * choreographed: the centre token surfaces in place first, tokens further
+     * out slide in from their own side (left half from the left, right half
+     * from the right) and everything sharpens from blur. A token is one CJK
+     * character, or a whole latin word (so words never split mid-way).
+     */
+    const buildLine = (text, animate) => {
+        lineEl.textContent = '';
+        // Tokenise: each Han/kana char stands alone; latin/digit runs stay
+        // whole (words never split); whitespace and punctuation are their own
+        // tokens. (A \p{L} regex would swallow CJK — Han is a letter too.)
+        const tokens = [];
+        let run = '';
+        const flush = () => { if (run) { tokens.push(run); run = ''; } };
+        for (const ch of text) {
+            if (/[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/.test(ch)) {
+                flush();
+                tokens.push(ch);
+            } else if (/[\p{L}\p{N}'’&.-]/u.test(ch)) {
+                run += ch;
+            } else {
+                flush();
+                tokens.push(ch);
+            }
+        }
+        flush();
+
+        const mid = (tokens.length - 1) / 2;
+        tokens.forEach((tok, i) => {
+            const sp = document.createElement('span');
+            sp.textContent = tok;
+            if (/^\s+$/.test(tok)) {
+                sp.style.whiteSpace = 'pre';
+                lineEl.appendChild(sp);
+                return;
+            }
+            const dist = Math.abs(i - mid);
+            const dir = Math.sign(i - mid);
+            sp.className = animate && !ctx.staticMode ? 'wave-ch' : 'wave-ch-static';
+            // start offset grows with distance from the centre, capped so very
+            // long lines do not fly in from absurdly far away
+            sp.style.setProperty('--dx', `${(dir * Math.min(dist, 4) * 0.55).toFixed(2)}em`);
+            // centre first, then a gentle outward stagger
+            sp.style.animationDelay = `${Math.round(120 + dist * 70)}ms`;
+            lineEl.appendChild(sp);
+        });
+    };
+
     const renderText = (animate) => {
         const display = ctx.getDisplay();
         const s = settings();
@@ -470,7 +529,10 @@ function mountWaveLight(folium, container, ctx) {
         const changed = key !== lastTextKey;
         lastTextKey = key;
 
-        lineEl.textContent = text;
+        // Rebuild the line only when it changed: the characters are spans so
+        // they can converge in with per-character stagger.
+        if (changed) buildLine(text, animate);
+
         keywordEl.textContent = keyword;
         keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
         // Fit the watermark: shrink it when the picked run is long, so 2–4
@@ -485,12 +547,16 @@ function mountWaveLight(folium, container, ctx) {
         translationEl.textContent = translation;
         translationEl.style.display = translation ? '' : 'none';
 
+        // The keyword leads (it is the focal character), the line's characters
+        // converge behind it; the translation just fades. The spans animate by
+        // themselves on insertion — only keyword and translation need a rerun.
         if (changed && animate && !ctx.staticMode) {
-            for (const el of [keywordEl, lineEl, translationEl]) {
-                el.classList.remove('wave-line-in', 'wave-keyword-in');
-                void el.offsetWidth;
-                el.classList.add(el === keywordEl ? 'wave-keyword-in' : 'wave-line-in');
-            }
+            keywordEl.classList.remove('wave-keyword-in');
+            void keywordEl.offsetWidth;
+            keywordEl.classList.add('wave-keyword-in');
+            translationEl.classList.remove('wave-fade-in');
+            void translationEl.offsetWidth;
+            translationEl.classList.add('wave-fade-in');
         }
         lastLineIndex = index;
     };

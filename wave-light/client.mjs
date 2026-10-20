@@ -93,10 +93,10 @@ function mountWaveLight(folium, container, ctx) {
         // surfaces first, the outer characters converge from their own side
         // (translateX from --dx to 0), everything sharpening from blur.
         '.wave-ch { display:inline-block; will-change:transform,filter,opacity;',
-        '  animation: wave-ch-in 0.46s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
+        '  animation: wave-ch-in 0.52s cubic-bezier(0.2, 0.8, 0.3, 1) both; }',
         '.wave-ch-static { display:inline-block; }',
         '@keyframes wave-ch-in {',
-        '  from { opacity: 0; filter: blur(10px); transform: translateX(var(--dx, 0em)); }',
+        '  from { opacity: 0; filter: blur(14px); transform: translateX(var(--dx, 0em)); }',
         '  to { opacity: 1; filter: blur(0); transform: translateX(0); }',
         '}',
     ].join('\n');
@@ -126,26 +126,29 @@ function mountWaveLight(folium, container, ctx) {
     ].join('');
     container.appendChild(keywordEl);
 
-    // ---- current line ------------------------------------------------------
-    // Absolutely centred on the same anchor as the watermark, so lyric and
-    // keyword share one focal point.
-    const lineEl = document.createElement('div');
-    lineEl.style.cssText = [
-        'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
-        'max-width:86%;text-align:center;text-wrap:balance;',
-        'line-height:1.3;font-weight:700;pointer-events:none;',
+    // ---- current line + translation ---------------------------------------
+    // One centred column: the active line, with the translation of foreign
+    // songs directly beneath it (as in the reference), the whole block
+    // anchored to the page centre.
+    const centreCol = document.createElement('div');
+    centreCol.style.cssText = [
+        'position:absolute;inset:0;display:flex;flex-direction:column;',
+        'align-items:center;justify-content:center;text-align:center;',
+        'box-sizing:border-box;padding:0 7%;pointer-events:none;',
     ].join('');
-    container.appendChild(lineEl);
+    container.appendChild(centreCol);
 
-    // ---- translation -------------------------------------------------------
-    // Foreign songs: pinned to the bottom-left, never centred.
+    const lineEl = document.createElement('div');
+    lineEl.style.cssText = 'max-width:100%;text-wrap:balance;line-height:1.3;font-weight:700;';
+    centreCol.appendChild(lineEl);
+
     const translationEl = document.createElement('div');
     translationEl.style.cssText = [
-        'position:absolute;left:5%;bottom:6.5%;max-width:62%;',
-        'text-align:left;line-height:1.45;font-weight:400;pointer-events:none;',
+        'max-width:72%;text-align:center;line-height:1.5;font-weight:400;',
+        'margin-top:1.6em;pointer-events:none;',
         'text-shadow:0 1px 8px rgba(0,0,0,0.35);',
     ].join('');
-    container.appendChild(translationEl);
+    centreCol.appendChild(translationEl);
 
     // ---- state -------------------------------------------------------------
     let disposed = false;
@@ -154,6 +157,7 @@ function mountWaveLight(folium, container, ctx) {
     let dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     let lastLineIndex = null;
     let lastTextKey = '';
+    let heldIdx = -1; // last real line shown, kept across interlude gaps
     let raf = 0;
     // The cover's dominant colour drives everything; null until extracted
     // (or when the artwork cannot be read), then the theme accent is used.
@@ -454,7 +458,7 @@ function mountWaveLight(folium, container, ctx) {
      * from the right) and everything sharpens from blur. A token is one CJK
      * character, or a whole latin word (so words never split mid-way).
      */
-    const buildLine = (text, animate) => {
+    const buildLine = (text) => {
         lineEl.textContent = '';
         // Tokenise: each Han/kana char stands alone; latin/digit runs stay
         // whole (words never split); whitespace and punctuation are their own
@@ -486,12 +490,14 @@ function mountWaveLight(folium, container, ctx) {
             }
             const dist = Math.abs(i - mid);
             const dir = Math.sign(i - mid);
-            sp.className = animate && !ctx.staticMode ? 'wave-ch' : 'wave-ch-static';
+            // Live mode always plays the entrance — whichever host path
+            // triggered the rebuild (lyric clock, snapshot change, remount).
+            sp.className = ctx.staticMode ? 'wave-ch-static' : 'wave-ch';
             // start offset grows with distance from the centre, capped so very
             // long lines do not fly in from absurdly far away
-            sp.style.setProperty('--dx', `${(dir * Math.min(dist, 4) * 0.55).toFixed(2)}em`);
+            sp.style.setProperty('--dx', `${(dir * Math.min(dist, 4) * 0.7).toFixed(2)}em`);
             // centre first, then a gentle outward stagger
-            sp.style.animationDelay = `${Math.round(120 + dist * 70)}ms`;
+            sp.style.animationDelay = `${Math.round(100 + dist * 80)}ms`;
             lineEl.appendChild(sp);
         });
     };
@@ -500,9 +506,11 @@ function mountWaveLight(folium, container, ctx) {
         const display = ctx.getDisplay();
         const s = settings();
         const showText = display.showText !== false;
-        lineEl.style.display = showText ? '' : 'none';
+        // NOTE: '' would *remove* the inline display:flex set in cssText and
+        // collapse the column to a plain block (lyric pinned to the top), so
+        // the visible state must restore 'flex' explicitly.
+        centreCol.style.display = showText ? 'flex' : 'none';
         keywordEl.style.display = showText && s.keyword ? '' : 'none';
-        translationEl.style.display = showText ? '' : 'none';
         if (!showText) {
             // Keep the line index in sync so `onLyricTime` does not keep
             // re-entering here on every clock tick while the text is hidden.
@@ -514,24 +522,42 @@ function mountWaveLight(folium, container, ctx) {
         const index = ctx.staticMode && ctx.staticLineIndex !== null
             ? ctx.staticLineIndex
             : ctx.getLineIndex();
-        const line = index >= 0 ? ctx.lines[index] : null;
 
-        // Active lyric; before the first line (intro) show "title - artist"
-        // the way the reference does.
-        let text = line?.fullText?.trim() || '';
-        if (!text) text = [song?.title, song?.artist].filter(Boolean).join(' - ') || '♪';
-        const translation = line?.translation?.trim() || '';
+        // Effective content: hold the most recent non-empty line through
+        // interlude gaps (empty lines, or the clock dipping to -1 between
+        // lines) — flashing "title - artist" mid-song reads as a bug. The
+        // title is only for the intro, before the first line has appeared.
+        let effIdx = -1;
+        let effLine = null;
+        let text = '';
+        const searchFrom = index >= 0 ? index : heldIdx;
+        for (let j = searchFrom; j >= 0; j--) {
+            const t = ctx.lines[j]?.fullText?.trim();
+            if (t) {
+                effIdx = j;
+                effLine = ctx.lines[j];
+                text = t;
+                break;
+            }
+        }
+        if (effIdx >= 0) heldIdx = effIdx;
+        let translation = effLine?.translation?.trim() || '';
+        if (!text) {
+            text = [song?.title, song?.artist].filter(Boolean).join(' - ') || '♪';
+            translation = '';
+        }
         const keyword = s.keyword ? keywordOf(text) : '';
 
-        // Re-animate only when the line really changed (the clock ticks far
-        // more often than lines change).
-        const key = `${index}|${text}|${translation}|${keyword}`;
+        // Re-animate only when the displayed content really changed (the clock
+        // ticks far more often than lines change). Holding a line through a
+        // gap yields the same key and therefore no rebuild.
+        const key = `${effIdx}|${text}|${translation}|${keyword}`;
         const changed = key !== lastTextKey;
         lastTextKey = key;
 
         // Rebuild the line only when it changed: the characters are spans so
         // they can converge in with per-character stagger.
-        if (changed) buildLine(text, animate);
+        if (changed) buildLine(text);
 
         keywordEl.textContent = keyword;
         keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
@@ -550,7 +576,7 @@ function mountWaveLight(folium, container, ctx) {
         // The keyword leads (it is the focal character), the line's characters
         // converge behind it; the translation just fades. The spans animate by
         // themselves on insertion — only keyword and translation need a rerun.
-        if (changed && animate && !ctx.staticMode) {
+        if (changed && !ctx.staticMode) {
             keywordEl.classList.remove('wave-keyword-in');
             void keywordEl.offsetWidth;
             keywordEl.classList.add('wave-keyword-in');

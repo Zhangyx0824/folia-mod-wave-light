@@ -487,10 +487,35 @@ function mountWaveLight(folium, container, ctx) {
      * a random word (latin). Never just the first characters: the position and
      * length are seeded by the line text, so they vary from line to line but
      * stay put while a line is active.
+     *
+     * Credit lines ("作词：… 作曲：…") are special-cased: the watermark shows
+     * the text after the last colon (usually a name), not the label.
      */
+    const CREDIT_RE = /(作词|作詞|作曲|编曲|編曲|填词|填詞|谱曲|譜曲|监制|監製|和声|和聲|混音|母带|母帶|lyrics?|compos\w*|written\s+by|produced\s+by)/i;
+
     const keywordOf = (text) => {
         const t = text.trim();
         if (!t) return '';
+
+        if (CREDIT_RE.test(t) && /[:：]/.test(t)) {
+            const raw = t.split(/[:：]/).pop();
+            const pool = raw.replace(/[\s\p{P}\p{S}]+/gu, '');
+            if (pool) {
+                // A short name reads best whole; longer latin values degrade to
+                // a whole word, long CJK values to a 4-char contiguous run.
+                if (pool.length <= 6) return pool;
+                const words = raw.split(/[\s,，.。!！?？;；'"、·—-]+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+                if (words.length) {
+                    const hw = strHash(t);
+                    return words[Math.floor(rand01(hw) * words.length) % words.length].slice(0, 12);
+                }
+                const h = strHash(t);
+                const start = Math.floor(rand01(h + 2) * (pool.length - 3)) % (pool.length - 3);
+                return pool.slice(start, start + 4);
+            }
+            // nothing after the colon — fall through to the normal rules
+        }
+
         // Strip spaces/punctuation/symbols so a run is always clean "字".
         const pool = t.replace(/[\s\p{P}\p{S}]+/gu, '');
         if (!pool) return '';
@@ -629,8 +654,10 @@ function mountWaveLight(folium, container, ctx) {
         // translation's vertical position, so it is computed even when the
         // watermark is off.
         const kLen = keyword.length || 3;
+        // Overall watermark scale is 80% of the old size — big enough to
+        // dominate, small enough to leave the translation room below.
         kFontPx = Math.max(28, Math.min(height * 0.42, (width * 0.8) / kLen)
-            * (0.55 + 0.45 * s.textScale));
+            * (0.55 + 0.45 * s.textScale)) * 0.8;
         if (keyword) keywordEl.style.fontSize = `${kFontPx}px`;
         measureViewport();
         applyTextLayout();

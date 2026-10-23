@@ -163,19 +163,14 @@ function mountWaveLight(folium, container, ctx) {
     let lastTextKey = '';
     let heldIdx = -1; // last real line shown, kept across interlude gaps
     let raf = 0;
-    // Viewport anchoring: the host may hand us a container that is not the
-    // full page (padded, offset, partially covered). The lyric, watermark and
-    // translation must centre on the VISIBLE page, so the container's
-    // on-screen rect is measured and the text layers anchored to the viewport
-    // explicitly. When the container already matches the page this reduces to
-    // plain 50% centring.
-    let compensated = false;
-    let compX = 0;
-    let compY = 0;
-    let vpW = 0;
-    let vpH = 0;
-    let vpLeft = 0;
-    let vpTop = 0;
+    // Text-layer alignment. The host does not always give us a clean
+    // full-page containing block: in the settings preview the mode is mounted
+    // inside a small card, and absolute children may resolve against some
+    // larger ancestor. So no anchor is assumed: every text layer is first put
+    // back at its natural position, measured on screen, and nudged by the
+    // difference between where it landed and where it belongs — the visible
+    // centre of OUR container. When the containing block is already correct
+    // every delta is zero and this is a no-op.
     let kFontPx = 0;
     // The cover's dominant colour drives everything; null until extracted
     // (or when the artwork cannot be read), then the theme accent is used.
@@ -390,8 +385,7 @@ function mountWaveLight(folium, container, ctx) {
         // container while we are mounted.
         if (now - lastMeasure > 500) {
             lastMeasure = now;
-            measureViewport();
-            applyTextLayout();
+            alignTextLayers();
         }
         draw(now);
         raf = requestAnimationFrame(frame);
@@ -415,40 +409,57 @@ function mountWaveLight(folium, container, ctx) {
     };
 
     // ---- typography --------------------------------------------------------
-    // Anchor the text layers to the viewport. Called after kFontPx is known.
-    const measureViewport = () => {
-        compensated = false;
-        try {
-            const r = container.getBoundingClientRect();
-            if (!r.width || !r.height) return; // no layout yet (tests, hidden)
-            const vw = window.innerWidth || r.width;
-            const vh = window.innerHeight || r.height;
-            vpW = vw;
-            vpH = vh;
-            vpLeft = r.left;
-            vpTop = r.top;
-            compX = Math.round(vw / 2 - (r.left + r.width / 2));
-            compY = Math.round(vh / 2 - (r.top + r.height / 2));
-            compensated = true;
-        } catch { /* keep plain centring */ }
-    };
+    // Align the text layers to the visible centre of our own container.
+    // Called after kFontPx is known, and re-run every 500ms + on every render
+    // so a host that moves, resizes or reparents the container stays correct.
+    const alignTextLayers = () => {
+        // 1. Reset every layer to its natural placement, so the measurement
+        //    below reflects where the browser puts it on its own.
+        keywordEl.style.left = '50%';
+        keywordEl.style.top = '50%';
+        centreCol.style.transform = '';
+        const baseTop = Math.round(height * 0.75 + kFontPx / 4);
+        translationEl.style.left = '50%';
+        translationEl.style.top = `${baseTop}px`;
 
-    const applyTextLayout = () => {
-        if (compensated) {
-            const cx = `${Math.round(vpW / 2 - vpLeft)}px`;
-            const cy = `${Math.round(vpH / 2 - vpTop)}px`;
-            keywordEl.style.left = cx;
-            keywordEl.style.top = cy;
-            // shift the column so its centre lands on the viewport centre
-            centreCol.style.transform = `translate(${compX}px, ${compY}px)`;
-            translationEl.style.left = cx;
-            translationEl.style.top = `${Math.round(vpH * 0.75 + kFontPx / 4 - vpTop)}px`;
-        } else {
-            keywordEl.style.left = '50%';
-            keywordEl.style.top = '50%';
-            centreCol.style.transform = '';
-            translationEl.style.left = '50%';
-            translationEl.style.top = `${Math.round(height * 0.75 + kFontPx / 4)}px`;
+        // 2. Measure. Without layout there is nothing to correct yet.
+        const cr = container.getBoundingClientRect();
+        if (!cr.width || !cr.height) return;
+        // If the host scales the container, on-screen deltas are in scaled
+        // pixels; divide them back out so the correction is exact.
+        const scale = cr.width / Math.max(1, container.offsetWidth || cr.width) || 1;
+        const cx = cr.left + cr.width / 2;
+        const layerCenter = (el) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, empty: !r.width && !r.height };
+        };
+        const px = (v) => `${Math.round(v)}px`;
+
+        // 3. Watermark: belongs at the container centre, positioned with
+        //    left/top (+ translate(-50%,-50%), also baked into its entrance
+        //    keyframes — nudging left/top never fights the animation).
+        const kw = layerCenter(keywordEl);
+        if (!kw.empty) {
+            keywordEl.style.left = `calc(50% + ${px((cx - kw.x) / scale)})`;
+            keywordEl.style.top = `calc(50% + ${px((cr.top + cr.height / 2 - kw.y) / scale)})`;
+        }
+
+        // 4. Lyric column: inset:0 flex centring, corrected with a transform
+        //    nudge measured on the line itself (spans converge symmetrically,
+        //    so the line's centre is stable even mid-entrance).
+        const line = layerCenter(lineEl);
+        if (!line.empty) {
+            const dx = Math.round((cx - line.x) / scale);
+            const dy = Math.round((cr.top + cr.height / 2 - line.y) / scale);
+            centreCol.style.transform = dx || dy ? `translate(${px(dx)}, ${px(dy)})` : '';
+        }
+
+        // 5. Translation: horizontally centred, vertically at the midpoint
+        //    between the watermark's lower edge and the bottom of the screen.
+        const tr = layerCenter(translationEl);
+        if (!tr.empty) {
+            translationEl.style.left = `calc(50% + ${px((cx - tr.x) / scale)})`;
+            translationEl.style.top = `calc(${baseTop}px + ${px((cr.top + cr.height * 0.75 + kFontPx / 4 - tr.y) / scale)})`;
         }
     };
 
@@ -772,8 +783,7 @@ function mountWaveLight(folium, container, ctx) {
             keywordEl.style.setProperty('--kw-blur', `${kwBlur}px`);
             keywordEl.style.filter = `blur(${kwBlur}px)`;
         }
-        measureViewport();
-        applyTextLayout();
+        alignTextLayers();
         translationEl.textContent = translation;
         translationEl.style.display = translation && showText ? '' : 'none';
 

@@ -52,17 +52,17 @@
   <path fill="none" stroke="url(#ringBand)" stroke-width="3" stroke-opacity="0.7" filter="url(#ringGlow)"
         d="M 1290 96 A 210 210 0 0 0 1108 386"/>
 
-  <!-- blurred keyword watermark (random word from the line) -->
-  <text x="640" y="392" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="238"
+  <!-- blurred keyword watermark: the line's heaviest word -->
+  <text x="640" y="417" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="164"
         font-weight="800" fill="#47436e" fill-opacity="0.9" text-anchor="middle" letter-spacing="4"
-        filter="url(#wmblur)">life</text>
+        filter="url(#wmblur)">short</text>
 
   <!-- centred lyric -->
-  <text x="640" y="292" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="47"
+  <text x="640" y="377" font-family="Avenir Next, Futura, PingFang SC, sans-serif" font-size="47"
         font-weight="700" fill="#ffffff" text-anchor="middle"
         style="text-shadow:0 2px 16px rgba(0,0,0,0.4)">My life was kinda short</text>
 
   <!-- translation, separate block below -->
-  <text x="640" y="458" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="21"
+  <text x="640" y="578" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="21"
         fill="#c6c4d6" fill-opacity="0.85" text-anchor="middle">我的人生很短暂</text>
 </svg>

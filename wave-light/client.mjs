@@ -3,9 +3,10 @@
 // A lyric animation *mode* modelled on QQ Music's 「动感波光」: the page is a
 // dark wash tinted by the current cover's dominant colour, with two large
 // slowly-moving concentric ripple clusters on the left and right (canvas,
-// additive blending). The active lyric line sits dead centre, enlarged; one
-// keyword character from the line floats behind it as a huge dark watermark;
-// a translation (foreign songs) is tucked into the bottom-left corner.
+// additive blending). The active lyric line sits dead centre, enlarged; the
+// line's heaviest word floats behind it as a huge dark watermark; a
+// translation (foreign songs) is tucked below, in the gap between the
+// watermark and the bottom of the screen.
 //
 // It is a normal visualizer entry, so it only draws when the user selects this
 // mode: every other mode is completely unaffected.
@@ -45,7 +46,7 @@ export default function activate(folium) {
         {
             key: 'keyword', type: 'boolean', defaultValue: true,
             label: label('关键字水印', 'Keyword watermark'),
-            description: label('歌词背后的超大水印，随机取当前句中 2–4 个连贯字（外语取一个单词）', 'A huge watermark behind the lyrics: a random run of 2–4 contiguous characters from the current line (a word for latin)'),
+            description: label('歌词背后的超大水印：取当前句里最有分量的那个词（词越长、唱得越久权重越高，与内置 sonnet 排版同一套打分）', 'A huge watermark behind the lyrics: the line’s heaviest word (longer words held longer win — the same scoring the built-in sonnet typography uses)'),
         },
         {
             key: 'textScale', type: 'number', defaultValue: 1, min: 0.6, max: 1.8, step: 0.05,
@@ -115,9 +116,8 @@ function mountWaveLight(folium, container, ctx) {
     const g = cv.getContext('2d');
 
     // ---- keyword watermark -------------------------------------------------
-    // A few contiguous characters picked out of the active line (2–4 for CJK,
-    // a word for latin), huge and dark, floating behind the lyric text —
-    // exactly co-centred with it.
+    // The line's heaviest word (see keywordOf), huge and dark, floating behind
+    // the lyric text — exactly co-centred with it.
     const keywordEl = document.createElement('div');
     keywordEl.style.cssText = [
         'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
@@ -484,60 +484,163 @@ function mountWaveLight(folium, container, ctx) {
     const rand01 = (n) => frac(Math.sin(n * 12.9898) * 43758.5453);
 
     /**
-     * A random *contiguous* run of 2–4 characters from the line (CJK/kana), or
-     * a random word (latin). Never just the first characters: the position and
-     * length are seeded by the line text, so they vary from line to line but
-     * stay put while a line is active.
+     * The watermark is the line's *hero word*, chosen the way the host's own
+     * lyric typography engine (`sonnet`, the mode the official K3Panel mod
+     * exposes sliders for) chooses which word of a line to draw huge:
+     *
+     *   1. split the line into WORDS, not characters — `Intl.Segmenter` with
+     *      word granularity, which is the same fallback the host itself uses
+     *      (it prefers an LLM segmentation, unavailable to a mod);
+     *   2. score every content word
+     *          score = min(chars, 8) × 14 + min(2.5 s, sungFor) × 18
+     *      so a long word held for a while beats a short one that flashes past:
+     *      in 「再度重相逢」 that is 「相逢」/「再度」, never the lone 「重」 that
+     *      merely happens to sit in the middle;
+     *   3. the heaviest word carries the line. Equal weights are broken by a
+     *      hash of the line, so consecutive lines do not all land on the same
+     *      position but a line never re-picks while it is on screen.
+     *
+     * The host also refuses to promote a hero in lines with fewer than four
+     * content words, and requires two characters minimum; a one-character
+     * winner borrows its neighbour so the run stays contiguous.
      *
      * Credit lines ("作词：… 作曲：…") are special-cased: the watermark shows
-     * the text after the last colon (usually a name), not the label.
+     * the value after the last colon (usually a name), not the label.
      */
     const CREDIT_RE = /(作词|作詞|作曲|编曲|編曲|填词|填詞|谱曲|譜曲|监制|監製|和声|和聲|混音|混響|母带|母帶|录音|錄音|制作|製作|出品|发行|發行|改编|改編|翻唱|原唱|演唱|主唱|词|曲|op|sp|吉他|钢琴|鋼琴|贝斯|貝斯|鼓|提琴|lyrics?|compos\w*|arrang\w*|written\s+by|produced\s+by|mix\w*|master\w*|record\w*|vocal\w*|perform\w*|remix\w*|guitar|bass|piano|drum\w*|violin)/i;
 
-    const keywordOf = (text) => {
+    // The host's scoring constants, kept as they are so the two agree.
+    const HERO = { charPoints: 14, charCap: 8, timePoints: 18, timeCap: 2.5, minChars: 2, tie: 0.94 };
+
+    let wordSegmenter; // lazily built; null when the runtime has none
+
+    const wordLikeRe = /[\p{L}\p{N}]/u;
+
+    // Words, each flagged `wordLike` (punctuation and spaces are not words).
+    const segmentWords = (text) => {
+        if (!text) return [];
+        if (wordSegmenter === undefined) {
+            try {
+                wordSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
+                    ? new Intl.Segmenter(undefined, { granularity: 'word' })
+                    : null;
+            } catch {
+                wordSegmenter = null;
+            }
+        }
+        if (wordSegmenter) {
+            try {
+                return Array.from(wordSegmenter.segment(text), (part, i) => ({
+                    text: part.segment,
+                    k: i,
+                    wordLike: part.isWordLike !== undefined ? part.isWordLike : wordLikeRe.test(part.segment),
+                }));
+            } catch {
+                wordSegmenter = null;
+            }
+        }
+        // No Intl.Segmenter: latin runs stay whole, CJK/kana is one character per
+        // unit, punctuation and whitespace are their own units. Coarser, but it
+        // keeps the watermark sane on older runtimes.
+        const out = [];
+        const re = /([\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff])|([\p{L}\p{N}'’&.-]+)|([\s\p{P}\p{S}]+)/gu;
+        let m = re.exec(text);
+        while (m) {
+            out.push({ text: m[0], k: out.length, wordLike: m[3] === undefined });
+            m = re.exec(text);
+        }
+        return out;
+    };
+
+    const wordChars = (text) => Array.from(text).filter((ch) => ch.trim() !== '').length;
+
+    // A line hands us only its own span, so each word's sung time is its share
+    // of the characters — long words take longer to sing, which is the ordering
+    // the score cares about. `lineSeconds <= 0` falls back to a slow-ish read.
+    const scoreWords = (words, lineSeconds) => {
+        const content = words.filter((w) => w.wordLike && wordChars(w.text) > 0);
+        const total = content.reduce((sum, w) => sum + wordChars(w.text), 0) || 1;
+        const span = Math.max(0.4, Math.min(16, Number(lineSeconds) || total * 0.32));
+        content.forEach((w) => {
+            w.chars = wordChars(w.text);
+            const sung = Math.min(HERO.timeCap, (span * w.chars) / total);
+            w.score = Math.min(w.chars, HERO.charCap) * HERO.charPoints + sung * HERO.timePoints;
+        });
+        return content;
+    };
+
+    const pickHero = (words, lineSeconds) => {
+        const content = scoreWords(words, lineSeconds);
+        if (!content.length) return null;
+        let best = content[0];
+        content.forEach((w) => { if (w.score > best.score) best = w; });
+        // Words of the same length score the same; the line hash picks one of
+        // them stably, so the watermark moves around between lines without
+        // ever changing under a line that is already on screen.
+        const near = content.filter((w) => w.score >= best.score * HERO.tie);
+        if (near.length < 2) return best;
+        const seed = strHash(words.map((w) => w.text).join('|'));
+        return near[Math.floor(rand01(seed + 7) * near.length) % near.length] || best;
+    };
+
+    // A single character cannot carry a giant watermark; borrow the heavier
+    // neighbour so the run still reads as one contiguous piece of the line.
+    const growHero = (hero, words) => {
+        let lo = hero.k;
+        let hi = hero.k;
+        let text = hero.text;
+        while (wordChars(text) < HERO.minChars) {
+            const prev = lo > 0 && words[lo - 1].wordLike ? words[lo - 1] : null;
+            const next = hi < words.length - 1 && words[hi + 1].wordLike ? words[hi + 1] : null;
+            if (!prev && !next) break;
+            if (prev && (!next || (prev.score || 0) >= (next.score || 0))) {
+                lo -= 1;
+                text = prev.text + text;
+            } else {
+                hi += 1;
+                text += next.text;
+            }
+        }
+        return text;
+    };
+
+    const cleanKeyword = (text) => text.replace(/[\s\p{P}\p{S}]+/gu, '').slice(0, 12);
+
+    // Punctuation and stray spaces at the edges only — inner spacing of a latin
+    // name stays, so 「Justin Timberlake」 does not run together.
+    const trimMarks = (text) => text.replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '');
+
+    const lineSeconds = (line) => {
+        const start = Number(line?.startTime);
+        const end = Number(line?.endTime);
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) return end - start;
+        if (Number.isFinite(end) && end > 0) return end;
+        return 0;
+    };
+
+    const keywordOf = (text, span) => {
         const t = text.trim();
         if (!t) return '';
 
         if (CREDIT_RE.test(t) && /[:：]/.test(t)) {
-            const raw = t.split(/[:：]/).pop();
-            const pool = raw.replace(/[\s\p{P}\p{S}]+/gu, '');
-            if (pool) {
-                // A short name reads best whole; longer latin values degrade to
-                // a whole word, long CJK values to a 4-char contiguous run.
-                if (pool.length <= 6) return pool;
-                const words = raw.split(/[\s,，.。!！?？;；'"、·—-]+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
-                if (words.length) {
-                    const hw = strHash(t);
-                    return words[Math.floor(rand01(hw) * words.length) % words.length].slice(0, 12);
-                }
-                const h = strHash(t);
-                const start = Math.floor(rand01(h + 2) * (pool.length - 3)) % (pool.length - 3);
-                return pool.slice(start, start + 4);
+            const raw = t.split(/[:：]/).pop().trim();
+            const exact = trimMarks(raw);
+            if (exact) {
+                // A short value reads best whole: 「方文山」, 「周杰伦」. Anything
+                // longer would have to shrink below the lyric to fit, so it is
+                // reduced to its heaviest word instead.
+                if (Array.from(exact).length <= 8) return exact;
+                const words = segmentWords(raw);
+                const hero = pickHero(words, span);
+                return hero ? cleanKeyword(growHero(hero, words)) : exact.slice(0, 8);
             }
             // nothing after the colon — fall through to the normal rules
         }
 
-        // Strip spaces/punctuation/symbols so a run is always clean "字".
-        const pool = t.replace(/[\s\p{P}\p{S}]+/gu, '');
-        if (!pool) return '';
-
-        const han = pool.match(/[\u3400-\u9fff\uf900-\ufaff]/);
-        const kana = pool.match(/[\u3040-\u30ff]/);
-        if (!han && !kana) {
-            // latin line: a random word, capped so it still fits.
-            const words = t.split(/[\s,，.。!！?？;；:：'"、·—-]+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
-            if (!words.length) return '';
-            const h = strHash(t);
-            return words[Math.floor(rand01(h) * words.length) % words.length].slice(0, 12);
-        }
-
-        const h = strHash(t);
-        const maxLen = Math.min(4, pool.length);
-        if (maxLen < 2) return pool;
-        const len = 2 + Math.floor(rand01(h + 1) * (maxLen - 1)); // 2..maxLen
-        const startMax = pool.length - len;
-        const start = Math.floor(rand01(h + 2) * (startMax + 1)) % (startMax + 1);
-        return pool.slice(start, start + len);
+        if (!cleanKeyword(t)) return '';
+        const words = segmentWords(t);
+        const hero = pickHero(words, span);
+        return hero ? cleanKeyword(growHero(hero, words)) : cleanKeyword(t).slice(0, 4);
     };
 
     /**
@@ -636,7 +739,7 @@ function mountWaveLight(folium, container, ctx) {
             text = song?.title || '♪';
             translation = '';
         }
-        const keyword = s.keyword ? keywordOf(text) : '';
+        const keyword = s.keyword ? keywordOf(text, lineSeconds(effLine)) : '';
 
         // Re-animate only when the displayed content really changed (the clock
         // ticks far more often than lines change). Holding a line through a
@@ -651,8 +754,8 @@ function mountWaveLight(folium, container, ctx) {
 
         keywordEl.textContent = keyword;
         keywordEl.style.display = keyword && showText && s.keyword ? '' : 'none';
-        // Fit the watermark: shrink it when the picked run is long, so 2–4
-        // characters never run off the page. The size also anchors the
+        // Fit the watermark: shrink it when the hero word is long, so even a
+        // twelve-letter word never runs off the page. The size also anchors the
         // translation's vertical position, so it is computed even when the
         // watermark is off.
         const kLen = keyword.length || 3;

@@ -1,6 +1,9 @@
 # folium-compound 模组提交 · 粘贴用文案
 
-新建 issue 地址：https://github.com/chthollyphile/folium-compound/issues/new?template=mod-submit.yml
+> **最快的方式**：打开 `SUBMIT.md` 里的预填链接，表单各栏已填好，只需**把真实截图拖进「运行截图」框**、勾上「确认」三项、提交。
+> （整条 URL 有 7 千多字符，单独放在 `SUBMIT.md`，不适合直接贴在这里。）
+
+新建 issue 地址：https://github.com/chthollyphile/folium-compound/issues/new?template=mod-submission.yml
 （若为更新，用 https://github.com/chthollyphile/folium-compound/issues/new?template=mod-update.yml ，标题 `[模组更新] 动感波光 wave-light`）
 
 标题：`[模组提交] 动感波光 wave-light`

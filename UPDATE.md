@@ -9,6 +9,10 @@ https://github.com/chthollyphile/folium-compound/issues/new?template=mod-update.
 
 > GitHub 应用无法在 folium-compound 建 issue（第三方仓库只读，403），所以表单要由本人提交。
 > 链接已填好标题、模组 id、版本、发布渠道、分类和更新说明；**唯一要手动做的是勾选「确认 / Confirmations」那一项**。
+>
+> ⚠ 提交前扫一眼两个下拉框：**「发布渠道」应为「保持不变 / Keep current」、「分类」应为「保持不变 / Keep current」**。
+> GitHub 表单有个坑：URL 带了参数时，没显式写进 URL 的下拉会被清成「无」；渠道留空会让 CI 报「只能是正式发布或先行测试」。
+> 如果显示不对（或长 URL 被浏览器截断导致「更新说明」为空），就从下面「各栏文案」手动粘贴、手动选下拉。
 
 ## 各栏文案（万一链接不好用，手动粘贴）
 

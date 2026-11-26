@@ -3,6 +3,7 @@
 // watermark word, and keeps every text layer centred in its own container.
 // Run with:
 //   node test/smoke.mjs
+import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -77,7 +78,7 @@ const makeCtx = (lines, opts = {}) => {
     return ctx;
 };
 
-const mount = async (ctx) => {
+const mount = async (ctx, opts = {}) => {
     const mod = await import(`${pathToFileURL(MOD).href}?t=${Date.now()}`);
     let reg = null;
     const folium = {
@@ -85,6 +86,7 @@ const mount = async (ctx) => {
             visualizers: { register: (def) => { reg = def; } },
         },
         theme: {},
+        ...(opts.folium || {}),
     };
     mod.default(folium);
     const host = document.getElementById('host');
@@ -237,6 +239,40 @@ const mount = async (ctx) => {
     ok('correct containing block stays untouched',
         kw6.style.left === 'calc(50% + 0px)' && col6.style.transform === '',
         `left=${kw6.style.left} transform=${col6.style.transform}`);
+
+    // ---- 8. Folia 0.8.0 / Folium 1.10 -------------------------------------
+    // The old "<0.8.0" upper bound makes the host refuse to load the mod at
+    // all on 0.8.0. Assert the range, and that a 0.8-shaped song DTO (only
+    // {id,title,artist,album,source,ref}) still renders — no duration,
+    // coverUrl or artists[] anywhere in the code path.
+    const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../wave-light/mod.json'), 'utf8'));
+    const foliaRange = String(manifest.folia || '');
+    ok('manifest folia range covers 0.8.0',
+        />=0\.8\.0/.test(foliaRange) && !/<\s*0\.8\.0/.test(foliaRange),
+        `folia=${foliaRange}`);
+    ok('manifest version bumped past the signed 1.5.1', manifest.version === '1.6.0',
+        `version=${manifest.version}`);
+
+    const dto08 = {
+        id: '121597355', title: '非正式主题曲', artist: '非正式会谈成员',
+        album: '', source: 'qq', ref: 'song-y',
+    };
+    const logCalls = [];
+    const c8 = makeCtx([{ fullText: '', translation: '', startTime: 0, endTime: 3 }],
+        { song: dto08, index: 0 });
+    const m8 = await mount(c8, { folium: {
+        host: { folium: { major: 1, minor: 10 }, folia: '0.8.0' },
+        log: { info: (msg) => logCalls.push(msg) },
+    } });
+    ok('0.8.0 host version is logged once at startup',
+        logCalls.some((m) => m.includes('0.8.0') && m.includes('1.10')),
+        `logs=${JSON.stringify(logCalls)}`);
+    ok('0.8.0 DTO: intro still shows the title',
+        m8.container.textContent.includes('非正式主题曲'),
+        m8.container.textContent.slice(0, 60));
+    ok('0.8.0 DTO: full page still renders',
+        !!m8.container.querySelector('canvas')
+        && [...m8.container.querySelectorAll('div')].some((d) => d.style.fontWeight === '800'));
 
     const failed = results.filter((r) => !r.pass);
     console.log(`\n${results.length - failed.length}/${results.length} passed`);

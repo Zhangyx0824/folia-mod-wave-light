@@ -1,6 +1,10 @@
-# folium-compound 模组提交 · 粘贴用文案
+# folium-compound 模组提交 · 粘贴用文案（初次提交存档）
 
-> **最快的方式**：打开 `SUBMIT.md` 里的预填链接，表单各栏已填好，只需**把真实截图拖进「运行截图」框**、勾上「确认」三项、提交。
+> ✅ **初次提交已完成**：issue [#93](https://github.com/chthollyphile/folium-compound/issues/93) 已 `signed` 收录，版本 1.5.1。
+> ⏭ **当前待办是「模组更新」v1.6.0（适配 Folia 0.8.0）**，请改看 **`UPDATE.md`**：里面有 `mod-update.yml` 的预填链接与各栏文案。
+> 本文件保留初次提交的字段存档，供以后参考；`SUBMIT.md` 里是当初的初次提交预填链接，已过期，不要再用于开新 issue。
+
+> 初次提交时的做法：打开 `SUBMIT.md` 里的预填链接，表单各栏已填好，只需**把真实截图拖进「运行截图」框**、勾上「确认」三项、提交。
 > （整条 URL 有 7 千多字符，单独放在 `SUBMIT.md`，不适合直接贴在这里。）
 
 新建 issue 地址：https://github.com/chthollyphile/folium-compound/issues/new?template=mod-submission.yml
